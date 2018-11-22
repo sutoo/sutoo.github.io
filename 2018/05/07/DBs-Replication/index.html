@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>DBs replication | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="replication的定义：在不同的联网的机器上，保存相同的数据。 需要replication的理由 使数据地理上离用户更近 保障系统的可用性 应付大量的读请求  replication的主要难点在于处理数据的变更。 在实现replication的时候，有许多可以权衡的点：同步或者异步，怎么处理失效的replicas。 主从模型被好多数据库产品采用：mysql， PostgresSQL，Mong">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DBs replication">
+<meta property="og:url" content="http://yoursite.com/2018/05/07/DBs-Replication/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="replication的定义：在不同的联网的机器上，保存相同的数据。 需要replication的理由 使数据地理上离用户更近 保障系统的可用性 应付大量的读请求  replication的主要难点在于处理数据的变更。 在实现replication的时候，有许多可以权衡的点：同步或者异步，怎么处理失效的replicas。 主从模型被好多数据库产品采用：mysql， PostgresSQL，Mong">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:39:59.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="DBs replication">
+<meta name="twitter:description" content="replication的定义：在不同的联网的机器上，保存相同的数据。 需要replication的理由 使数据地理上离用户更近 保障系统的可用性 应付大量的读请求  replication的主要难点在于处理数据的变更。 在实现replication的时候，有许多可以权衡的点：同步或者异步，怎么处理失效的replicas。 主从模型被好多数据库产品采用：mysql， PostgresSQL，Mong">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-DBs-Replication" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/07/DBs-Replication/" class="article-date">
+  <time datetime="2018-05-06T16:00:00.000Z" itemprop="datePublished">2018-05-07</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      DBs replication
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>replication的定义：在不同的联网的机器上，保存相同的数据。</p>
+<h3 id="需要replication的理由"><a href="#需要replication的理由" class="headerlink" title="需要replication的理由"></a>需要replication的理由</h3><ul>
+<li>使数据地理上离用户更近</li>
+<li>保障系统的可用性</li>
+<li>应付大量的读请求</li>
+</ul>
+<p>replication的主要难点在于<strong>处理数据的变更</strong>。</p>
+<p>在实现replication的时候，有许多可以权衡的点：同步或者异步，怎么处理失效的replicas。</p>
+<h3 id="主从模型"><a href="#主从模型" class="headerlink" title="主从模型"></a>主从模型</h3><p>被好多数据库产品采用：mysql， PostgresSQL，MongoDB，RethinkDB。</p>
+<h4 id="同步异步"><a href="#同步异步" class="headerlink" title="同步异步"></a>同步异步</h4><p>其中的一个重要的细节：备份是同步还是异步发生的，在关系数据库中，这个选项大多是可配置的，其他的数据库，一般会选择其中一种情况。所有的从节点的同步，无论是全同步，或是全异步都有问题：全同步的情况，如果一个节点断了，就会导致整个系统的写入变慢；全异步的情况，数据又容易丢失。一般采用混合的方式：一个从同步写，其他的采用异步，如果同步写的从节点断线了，可以立刻用其他的节点来补上，这样的方式，通常被叫做：<strong>semi-synchronous  </strong>。在持久性上的弱化，莫阿斯</p>
+<h4 id="新增从节点"><a href="#新增从节点" class="headerlink" title="新增从节点"></a>新增从节点</h4><p>不管是扩容还是替换掉废节点，都需要做这个操作。怎么保证新增的从节点和主节点的同步？</p>
+<p>在不停服务的情况下，一般这样操作：</p>
+<p>1 获取主节点某个时刻的snapshot。</p>
+<p>2 复制这个snapshot到新增的从节点。</p>
+<p>3 新从节点和主节点获取时间点之后的所有更新。这个需要一个准确的位置，在PostgresSQL中叫’log sequence number’，在mysql中叫‘binlog coordinates’。</p>
+<p>4 当从snapshot开始的所有数据变更都被同步了之后，这个从节点可以像正常的从节点一样了。</p>
+<h4 id="处理节点掉线"><a href="#处理节点掉线" class="headerlink" title="处理节点掉线"></a>处理节点掉线</h4><p>为了保证整个系统长时间运行，需要有这样的能力，保证任何节点 （主从）挂掉都不会影响整个系统的可用性。</p>
+<p>从节点挂掉：Catch-up recovery </p>
+<p>被重新启动的从节点会向主节点请求这期间的所有数据改动。</p>
+<p>主节点挂掉：Failover </p>
+<p>失效转移可以人工或者自动执行。但都包含以下几步：</p>
+<p>1 主节点的失效检测</p>
+<p>2 选举出新的主节点</p>
+<p>3 修改配置，使用新的主节点</p>
+<p>但是也存在很多难以解决的问题：</p>
+<p>1 在异步同步的情况下，如果保障选出的新leader有最新的更新。</p>
+<p>2 丢弃的写操作很危险。</p>
+<p>3 脑裂</p>
+<p>4 主节点失效检测的timeout选取</p>
+<h4 id="复制日志-replication-log-的实现"><a href="#复制日志-replication-log-的实现" class="headerlink" title="复制日志(replication log)的实现"></a>复制日志(replication log)的实现</h4><p>1 Statement-based replication</p>
+<p>最简单的方式，主节点记录所有收到的请求，并转发给从节点。mysql 5.1 之前都在用这种方式。</p>
+<p>2 Write-ahead log (WAL) shipping</p>
+<p>几乎都在使用WAL日志，不管是log-structured 存储引擎（SSTable 和 LSM-tree）还是B-tree存储引擎。</p>
+<p>但还是有他的坏处：太底层了。一条WAL日志记录了一个磁盘block上的某个byte的变更。这个坏处导致了relication和存储引擎的实现耦合太紧。</p>
+<p>3Logical (row-based) log replication</p>
+<p>也就是logical log，和底层的存储引擎解耦。 Mysql的binlog(when configured to use row-based replication) 就是这一类。</p>
+<p>4 Trigger-based replication</p>
+<p>这种方式，一般是依赖外部工具来实现，更容易带来bug，但是更灵活。</p>
+<h4 id="read-after-write-consistency"><a href="#read-after-write-consistency" class="headerlink" title="read-after-write consistency"></a>read-after-write consistency</h4><p>写入后，由主从同步的延迟，可能读不到写入的变更。 read-after-write consistency可以防止这样的情况 .</p>
+<p>怎么做到这种一致性：有这样几种思路， 1 任何可能被当前用户修改的数据的读取，都从主节点进行。举个例子：用户的profile，我们就可以永远从主库读取自己的profile， 从从库读取他人的profile。2 如果上面的方法不行，可以记录updatetime，然后在每次写入后的一段时间内都读取主库。3 客户端可以记录一个它最近一次写操作的“时间戳”，然后，每次读取的时候都带着这个“时间戳”。系统来保障，服务读请求的从节点，自身同步过的写操作的“时间戳”要大于读请求中带着的。4 如果涉及到多数据中心，会更加复杂。</p>
+<h4 id="Monotonic-Read（单调读）"><a href="#Monotonic-Read（单调读）" class="headerlink" title="Monotonic Read（单调读）"></a>Monotonic Read（单调读）</h4><p>当一个客户端多次进行读时，他不会感觉到时间倒流，每次读到的结果一定是相同的或者更新的。</p>
+<p>一个实现的方法是：保障每个客户端被绑定在一个replica上，</p>
+<h4 id="Consistent-Prefix-Reads"><a href="#Consistent-Prefix-Reads" class="headerlink" title="Consistent Prefix Reads"></a>Consistent Prefix Reads</h4><p>确保的是：无论任何一个客户端，他读到的写操作的顺序是和实际的写入顺序是一致的。</p>
+<h3 id="多主模型"><a href="#多主模型" class="headerlink" title="多主模型"></a>多主模型</h3><p>之前说的都是单主模型：只有一个主节点接受写操作。但是如果因为什么原因无法连接上主节点，导致的结果就是，无法向数据库写入。自然的，产生了多主模型。</p>
+<h4 id="使用场景"><a href="#使用场景" class="headerlink" title="使用场景"></a>使用场景</h4><p>1 多数据中心：每个中心一个leader。这样比单leader有不少好处，但是相应的坏处是：数据可能被并发的修改，在不同的数据中心之间，这个“冲突”必须被解决。</p>
+<p>2 Clients with offline operation ：一部分datacenter离线一段时间，然后又回到集群。离开的那段时间，也可以正常运行。比方说 CouchDB</p>
+<p>3 Collaborative editing ：一般我们不把协同编辑功能，当做一个数据库的replication的问题来看，但是他们有好多相似的地方。</p>
+<h4 id="解决写冲突"><a href="#解决写冲突" class="headerlink" title="解决写冲突"></a>解决写冲突</h4><ul>
+<li>冲突检测：多主的情况下，每个写入都是成功的，冲突只能在后续的一个时间点被检测出来，那个时候，已经无法让用户去解决冲突。 如果要同步的冲突检测，就只能等待所有的replica都同步完，这个和单leader没什么区别。</li>
+<li>避免冲突：最简单的解决冲突的办法就是避免冲突。举个🌰：用户可以修改自己的信息，可以让这个用户一直路由到同一个dc。但是当用户旅游到了其他地方，就近接入了另外一个dc， 这个方法就失效了， 冲突就会出现。</li>
+<li>Converging toward a consistent state： 如果是单个leader，我们可以知道更新操作的顺序，如果有对同一个field的更新操作，最后一个更新决定了这个field的值。如果是多个leader，这个顺序很难知道。</li>
+</ul>
+<p>收敛的方法：</p>
+<p>1 每一个写操作都带一个唯一Id。冲突的几个版本中，id大的胜利。</p>
+<p>2 在一个额外的地方记录冲突，后续解决。可能通知用户来选择。</p>
+<ul>
+<li>自定义解决冲突的逻辑：让应用去解决冲突是大部分数据库的一般做法，大部分多主的数据库工具可以自定义冲突解决逻辑。一般有2个时机可以执行冲突解决逻辑：当冲突被检测到或者当读请求到来的时候。</li>
+</ul>
+<p>自动冲突解决：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">• Conflict-free replicated datatypes (CRDTs) [32, 38] are a family of data structures for sets, maps, ordered lists, counters, etc. that can be concurrently edited by multiple users, and which automatically resolve conflicts in sensible ways. Some CRDTs have been implemented in Riak 2.0 [39, 40].</span><br><span class="line">• Mergeable persistent data structures [41] track history explicitly, similarly to the Git version control system, and use a three-way merge function (whereas CRDTs use two-way merges).</span><br><span class="line">• Operational transformation [42] is the conflict resolution algorithm behind col‐ laborative editing applications such as Etherpad [30] and Google Docs [31]. It was designed particularly for concurrent editing of an ordered list of items, such as the list of characters that constitute a text document.</span><br></pre></td></tr></table></figure>
+<h3 id="无主"><a href="#无主" class="headerlink" title="无主"></a>无主</h3><p>废除主节点，任何节点都可以接受写操作。比较有代表性的此类数据库：Dynamo，Riak，Cassandra。</p>
+<h4 id="有节点挂掉时的写入"><a href="#有节点挂掉时的写入" class="headerlink" title="有节点挂掉时的写入"></a>有节点挂掉时的写入</h4><p>假设有个3个节点，其中一个挂掉。 写入的时候，是能更新其余2个节点。当挂掉的节点又启动起来，不能立刻与另外2个同步。这个时候如果读数据，可能会得到未更新的结果（读请求落到刚刚恢复的节点）。过一会，数据都同步了，读也会全部为新的了。</p>
+<p>怎么解决这个问题？读请求也并行的发到多个节点，如果得到了多个结果，选择“<strong>版本号</strong>”最大的结果。</p>
+<h4 id="Read-repair-and-anti-entropy"><a href="#Read-repair-and-anti-entropy" class="headerlink" title="Read repair and anti-entropy"></a>Read repair and anti-entropy</h4><p>副本集群应该保证最终集群中的数据是一致的。一个离开的节点，又回到了集群，怎么保证他的同步？和Dynamo类似的数据库，一般会采用两种方法，来实现：</p>
+<ul>
+<li><p>Read repair </p>
+<p>读取的时候，会读多个节点，把其中落后的节点，通知他们补上。</p>
+</li>
+<li><p>Anti-entropy process </p>
+</li>
+</ul>
+<p>​       有一个后台的任务不断的去发现节点中的不同，进行修复。</p>
+<h4 id="Quorums-for-reading-and-writing-（读写的法定人数）"><a href="#Quorums-for-reading-and-writing-（读写的法定人数）" class="headerlink" title="Quorums for reading and writing （读写的法定人数）"></a>Quorums for reading and writing （读写的法定人数）</h4><p>假设有n个replicas，写入的时候，必须有至少w个节点写入成功，读的时候，至少从r个节点中读取。只要 <strong>w + r &gt; n</strong> ，就可以保证读的时候，总可以读到最新的结果，因为读写至少有一个节点是重合的。在类Dynamo数据库中，w，r，n都是可配置的。</p>
+<h4 id="Sloppy-Quorums-and-Hinted-Handoff"><a href="#Sloppy-Quorums-and-Hinted-Handoff" class="headerlink" title="Sloppy Quorums and Hinted Handoff"></a>Sloppy Quorums and Hinted Handoff</h4><p>无主的集群，可以忍受任意一个节点的挂掉， 因为不需要fallover， 也可以忍受个别节点变慢，因为因为只需要w或r个节点返回就可以。所以这个导致了，它十分适合需要 <strong>高可用</strong>，<strong>低延迟</strong>，但是可以容忍偶发的 <strong>stale reads</strong>。</p>
+<p>如果因为网络原因，导致一个clinet只能看到一部分的节点，这样会导致他的读写无法达到法定人数。</p>
+<p>这个时候，如果选择？ </p>
+<p>1 失败。</p>
+<p>2 </p>
+<p>Hinted Handoff：当需要向一个已知宕机的节点写入数据的时候，Cassandra会将数据作为提示数据写入另一个正常的复本节点。稍后会对恢复的宕机节点进行数据重放。如果所有的复本节点都不能访问，则将提示数据写入到协调者本地。（能够理解提示的含义么） 当一个节点，通过Gossip发现它所存储的提示数据的所属节点恢复正常，他就会将提示数据发送到其所属目标节点。</p>
+<p>缩短了暂时失败的节点恢复一致的时间。尤其是在一些奇怪的网络问题下，更加有用。（网络短时间不可用之类）</p>
+<p>Hinted Handoff并不是修复机制的代替品。</p>
+<p>上面的方式也叫做 Sloppy quorums，它可以有效的增加写入的可用性，但是它不是真正的法定人数，不能保证读到最新的数据。</p>
+<h4 id="Limitations-of-Quorum-Consistency-（Quorum-Consistency-的限制）"><a href="#Limitations-of-Quorum-Consistency-（Quorum-Consistency-的限制）" class="headerlink" title="Limitations of Quorum Consistency （Quorum Consistency 的限制）"></a>Limitations of Quorum Consistency （Quorum Consistency 的限制）</h4><p>就算 w + r &gt; n， 也是有一些边界case，会返回不是最新的结果。</p>
+<p>1 sloppy quorum </p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/07/DBs-Replication/" data-id="cjos8tzho000mrkwkdvtti7l1" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/05/16/DBs_B+tree/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          B+树
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/05/06/DBs-mongoDB/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">MongoDB</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

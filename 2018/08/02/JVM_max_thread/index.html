@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>JVM最大线程数 | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="JVM最大线程数至于操作系统栈大小（ulimit -s）：这个配置只影响进程的初始线程；后续用pthread_create创建的线程都可以指定栈大小。HotSpot VM为了能精确控制Java线程的栈大小，特意不使用进程的初始线程（primordial thread）作为Java线程。  不显式设置-Xss或-XX:ThreadStackSize时，在Linux x64上ThreadStackSi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM最大线程数">
+<meta property="og:url" content="http://yoursite.com/2018/08/02/JVM_max_thread/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="JVM最大线程数至于操作系统栈大小（ulimit -s）：这个配置只影响进程的初始线程；后续用pthread_create创建的线程都可以指定栈大小。HotSpot VM为了能精确控制Java线程的栈大小，特意不使用进程的初始线程（primordial thread）作为Java线程。  不显式设置-Xss或-XX:ThreadStackSize时，在Linux x64上ThreadStackSi">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:39:09.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="JVM最大线程数">
+<meta name="twitter:description" content="JVM最大线程数至于操作系统栈大小（ulimit -s）：这个配置只影响进程的初始线程；后续用pthread_create创建的线程都可以指定栈大小。HotSpot VM为了能精确控制Java线程的栈大小，特意不使用进程的初始线程（primordial thread）作为Java线程。  不显式设置-Xss或-XX:ThreadStackSize时，在Linux x64上ThreadStackSi">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-JVM_max_thread" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/08/02/JVM_max_thread/" class="article-date">
+  <time datetime="2018-08-01T16:00:00.000Z" itemprop="datePublished">2018-08-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      JVM最大线程数
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="JVM最大线程数"><a href="#JVM最大线程数" class="headerlink" title="JVM最大线程数"></a>JVM最大线程数</h1><p>至于操作系统栈大小（ulimit -s）：这个配置只影响进程的初始线程；后续用pthread_create创建的线程都可以指定栈大小。HotSpot VM为了能精确控制Java线程的栈大小，特意不使用进程的初始线程（primordial thread）作为Java线程。</p>
+<p> 不显式设置-Xss或-XX:ThreadStackSize时，在Linux x64上ThreadStackSize的默认值就是1024KB</p>
+<ul>
+<li><strong>StackOverflowError</strong> (the stack size is greater than the limit), increase the value</li>
+<li><strong>OutOfMemoryError: unable to create new native thread</strong> (too many threads, each thread has a large stack), decrease it.</li>
+</ul>
+<p>JVM中可以生成的最大数量由JVM的堆内存大小、Thread的Stack内存大小、系统最大可创建的线程数量（Java线程的实现是基于底层系统的线程机制来实现的，Windows下_beginthreadex，Linux下pthread_create）三个方面影响。</p>
+<p>具体数量可以根据Java进程可以访问的最大内存（32位系统上一般2G）、堆内存、Thread的Stack内存来估算。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(MaxProcessMemory - JVMMemory – ReservedOsMemory) / (ThreadStackSize) = Number of threads</span><br></pre></td></tr></table></figure>
+<ul>
+<li>MaxProcessMemory : 进程的最大寻址空间</li>
+<li>JVMMemory : JVM内存</li>
+<li>ReservedOsMemory : 保留的操作系统内存，如Native heap，JNI之类，一般100多M</li>
+<li>ThreadStackSize : 线程栈的大小，jvm启动时由Xss指定</li>
+</ul>
+<p>综上所述：</p>
+<p>jvm的最大线程数受一下jvm参数限制</p>
+<p><strong>-Xms</strong>  最小堆内存 <strong>-Xmx</strong>  最大堆内存 <strong>-Xss</strong>   设置每个线程的堆栈大小。JDK5.0以后每个线程堆栈大小为1M</p>
+<p><strong>线程数量 = (机器本身可用内存 - JVM分配的堆内存) / Xss的值。</strong> </p>
+<p>补充下： jvm线程数还和系统的最大线程限制有关：</p>
+<p><strong>操作系统限制</strong> 系统最大可开线程数，主要受以下几个参数影响</p>
+<p>​        /proc/sys/kernel/pid_max</p>
+<p>​        /proc/sys/kernel/thread-max <strong>系统可以生成最大线程数量</strong></p>
+<p>​        /proc/sys/vm/max_map_count  <strong>文件包含限制一个进程可以拥有的VMA(虚拟内存区域)的数量 。单个JVM能开启的最大线程数是/proc/sys/vm/max_map_count的设置数的一半</strong></p>
+<p><a href="https://segmentfault.com/a/1190000004694232" target="_blank" rel="noopener">https://segmentfault.com/a/1190000004694232</a></p>
+<p><a href="https://www.oschina.net/translate/understanding-virtual-memory?print" target="_blank" rel="noopener">https://www.oschina.net/translate/understanding-virtual-memory?print</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/08/02/JVM_max_thread/" data-id="cjos8tzgs0009rkwkthztn677" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/08/14/Black_Red_tree/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Red Black Tree
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/07/25/mysql_explain/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Mysql explain</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

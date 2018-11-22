@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Imoko">
+<meta property="og:url" content="http://yoursite.com/page/2/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:locale" content="default">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Imoko">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-Kafka_design" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/Kafka_design/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/10/30/Kafka_design/">Kafka design</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><code>Kafka官方文档翻译以及扩展</code></p>
+<p><a href="https://kafka.apache.org/documentation.html#design" target="_blank" rel="noopener">官方文档</a></p>
+<p>中文版本：<a href="https://www.cnblogs.com/coprince/p/5893066.html" target="_blank" rel="noopener">https://www.cnblogs.com/coprince/p/5893066.html</a></p>
+<p>其他参考：<a href="https://colobu.com/2017/11/02/kafka-replication/" target="_blank" rel="noopener">https://colobu.com/2017/11/02/kafka-replication/</a></p>
+<h3 id="4-1-Motivation"><a href="#4-1-Motivation" class="headerlink" title="4.1 Motivation"></a><a href="https://kafka.apache.org/documentation.html#majordesignelements" target="_blank" rel="noopener">4.1 Motivation</a></h3><p>for handling all the real-time data feeds</p>
+<ul>
+<li>high-throughput</li>
+<li>large data backlogs  大量的数据积压</li>
+<li>low-latency delivery 满足传统的队列的用法</li>
+</ul>
+<h3 id="4-2-Persistence"><a href="#4-2-Persistence" class="headerlink" title="4.2 Persistence"></a><a href="https://kafka.apache.org/documentation.html#persistence" target="_blank" rel="noopener">4.2 Persistence</a></h3><blockquote>
+<p>As a result the performance of linear writes on a <a href="http://en.wikipedia.org/wiki/Non-RAID_drive_architectures" target="_blank" rel="noopener">JBOD</a> configuration with six 7200rpm SATA RAID-5 array is about 600MB/sec but the performance of random writes is only about 100k/sec—a difference of over 6000X.</p>
+</blockquote>
+<p>磁盘的顺序写和随机写，性能相差6000倍，<a href="http://deliveryimages.acm.org/10.1145/1570000/1563874/jacobs3.jpg" target="_blank" rel="noopener">sequential disk access can in some cases be faster than random memory access!</a></p>
+<ul>
+<li><p>OS pagecache</p>
+<p>现代操作系统很乐于使用所有的空闲内存来做disk caching。所有的磁盘读写都会通过这些cache进行。</p>
+</li>
+<li><p>Furthermore, we are building on top of the JVM, and anyone who has spent any time with Java memory usage knows two things:</p>
+<pre><code> The memory overhead of objects is very high, often doubling the size of the data stored (or worse).
+
+Java garbage collection becomes increasingly fiddly and slow as the in-heap data increases.
+</code></pre></li>
+</ul>
+<p>基于上面的两个原因， 得出的结论：</p>
+<blockquote>
+<p>using the filesystem and relying on pagecache is superior to maintaining an in-memory cache</p>
+</blockquote>
+<p>直接使用带pagecache的OS filesystem 甚至性能会比使用内存cache要更好。</p>
+<p>This style of pagecache-centric design is described in an <a href="http://varnish-cache.org/wiki/ArchitectNotes" target="_blank" rel="noopener">article</a> on the design of Varnish</p>
+<h3 id="partition存储细节："><a href="#partition存储细节：" class="headerlink" title="partition存储细节："></a>partition存储细节：</h3><p>broker的机器上，xxx/message-folder为数据文件存储根目录，在这个目录下， 每个partition一个文件夹。</p>
+<p>在partition的文件夹下，有多个segment：</p>
+<ul>
+<li>segment file组成：由2大部分组成，分别为index file和data file，此2个文件一一对应，成对出现，后缀”.index”和“.log”分别表示为segment索引文件、数据文件.</li>
+<li>segment文件命名规则：partion全局的第一个segment从0开始，后续每个segment文件名为上一个segment文件最后一条消息的offset值。数值最大为64位long大小，19位数字字符长度，没有数字用0填充。</li>
+</ul>
+<p><img src="image-20181105233252954.png" alt="image-20181105233252954"></p>
+<p><img src="image-20181105233332064.png" alt="image-20181105233332064"></p>
+<p>segment data file由许多message组成，每个message物理结构如下：</p>
+<p><img src="image-20181105233407991.png" alt="image-20181105233407991"></p>
+<h3 id="4-3-Efficiency"><a href="#4-3-Efficiency" class="headerlink" title="4.3 Efficiency"></a><a href="https://kafka.apache.org/documentation.html#maximizingefficiency" target="_blank" rel="noopener">4.3 Efficiency</a></h3><p>For more background on the sendfile and zero-copy support in Java, see this <a href="http://www.ibm.com/developerworks/linux/library/j-zerocopy" target="_blank" rel="noopener">article</a>. </p>
+<h3 id="4-4-The-Producer"><a href="#4-4-The-Producer" class="headerlink" title="4.4 The Producer"></a><a href="https://kafka.apache.org/documentation.html#theproducer" target="_blank" rel="noopener">4.4 The Producer</a></h3><p>任意一个broker都保存着metadate，关于哪些节点是活着的，还有一个topic的partition的leader是谁？所以producer可以找到对应的leader，直接向其发送消息。</p>
+<h3 id="4-5-The-Consumer"><a href="#4-5-The-Consumer" class="headerlink" title="4.5 The Consumer"></a><a href="https://kafka.apache.org/documentation.html#theconsumer" target="_blank" rel="noopener">4.5 The Consumer</a></h3><p>consumer执行‘fetch’操作，同时带着offset，来向leader拉去消息。</p>
+<p>offset：</p>
+<p>一般的队列都会在broker端记录consumer消费的位置，这样做可以及时的删除消费掉的消息，但是维护这个位置是很费事的，还需要consumer返回ack。</p>
+<p>kafka也会记录一个offset，表示下一个可以消费的消息的位置，而且可以‘倒带’，即重现消费之前消费过的消息。</p>
+<h3 id="4-6-Message-Delivery-Semantics"><a href="#4-6-Message-Delivery-Semantics" class="headerlink" title="4.6 Message Delivery Semantics"></a><a href="https://kafka.apache.org/documentation.html#semantics" target="_blank" rel="noopener">4.6 Message Delivery Semantics</a></h3><h3 id="4-7-Replication"><a href="#4-7-Replication" class="headerlink" title="4.7 Replication"></a><a href="https://kafka.apache.org/documentation.html#replication" target="_blank" rel="noopener">4.7 Replication</a></h3><ul>
+<li><p>The unit of replication is the topic partition</p>
+<p>relication的最小单位是topic的partition。</p>
+</li>
+<li><p>支持automatic faiover</p>
+<p>TODO 怎么支持的</p>
+</li>
+<li><p>不像其他队列，replication的作用就只有做副本，无副作用。例如不会提供读。</p>
+</li>
+<li><p>followers从leader消费数据，就好像是一个kafka的consumer一样。</p>
+</li>
+<li><p>节点存活的定义</p>
+<p>1 A node must be able to maintain its session with ZooKeeper </p>
+<p>2 If it is a slave it must replicate the writes happening on the leader and not fall “too far” behind</p>
+</li>
+<li><p>leader 维护ISR （in sync replication）</p>
+<p>如果一个follower挂了，阻塞了或者落后了，leader会把他从ISR中删除。</p>
+</li>
+<li><p>kafka不解决拜占庭问题。</p>
+</li>
+</ul>
+<h3 id="commit"><a href="#commit" class="headerlink" title="commit"></a>commit</h3><p>定义：</p>
+<p>所有的ISR的节点都提交了log之后，才说一个message被committed。只有committed message才会提供给consumer。</p>
+<p>对于consumer来说：</p>
+<p>consumer不会担心看到过的message 会因为leader切换而丢失。</p>
+<p>对于producer：</p>
+<p>可以选择是否要等待message被committed，是latency 和 durability之间的tradeoff。</p>
+<blockquote>
+<p>The guarantee that Kafka offers is that a committed message will not be lost, as long as there is at least one in sync replica alive, at all times. </p>
+</blockquote>
+<p>只要有一个ISR存活，就可以保障committed message 不会丢失。</p>
+<blockquote>
+<p>Kafka will remain available in the presence of node failures after a short fail-over period, but may not remain available in the presence of network partitions. </p>
+</blockquote>
+<p>kafka在节点短期失效的情况下可以保持可用，但是在存在网络分区的情况下，是不可用的。</p>
+<p>TODO：怎么理解</p>
+<h2 id="Quorum-algorithms（-majority-vote"><a href="#Quorum-algorithms（-majority-vote" class="headerlink" title="Quorum algorithms（ majority vote)"></a>Quorum algorithms（ majority vote)</h2><p>简单来说，一半以上的follower commit了才能保障选举出来的leader有最新的commit。</p>
+<p>好处：latency只依赖于最快的node。因为只要有一半ack了，就是commit成功，最快的最先完成。</p>
+<p>坏处：写的增多，整体吞吐量下降，使得他不适合于大量的写的情况。举个例子：如果为了可以容忍2个节点的实效，就必须要5份数据的copy。 这个坏处也就可以解释为什么 quorum算法被经常用于类似zk这样的配置共享集群，而很少用于data storage。</p>
+<p>kafka没有使用quorum算法。</p>
+<blockquote>
+<p>Instead of majority vote, Kafka dynamically maintains a set of in-sync replicas (ISR) that are caught-up to the leader. </p>
+</blockquote>
+<p>作为替代，kafka维护了一个ISR，其中每个replication都和leader保持一致。这个ISR是被leader维护的，且会保存到zk上。</p>
+<p>只有ISR的成员，才会是leader的候选人。</p>
+<blockquote>
+<p>This ISR set is persisted to ZooKeeper whenever it changes. </p>
+</blockquote>
+<p>这个IRS集合是被持久化到zk。</p>
+<blockquote>
+<p>Another important design distinction is that Kafka does not require that crashed nodes recover with all their data intact</p>
+</blockquote>
+<p>另外一个kafka的特点是，crashed的nodes恢复后，不用恢复所有的数据。</p>
+<h2 id="Unclean-leader-election"><a href="#Unclean-leader-election" class="headerlink" title="Unclean leader election"></a>Unclean leader election</h2><p>如果所有的ISR都挂了，怎么办？</p>
+<ol>
+<li>Wait for a replica in the ISR to come back to life and choose this replica as the leader (hopefully it still has all its data).</li>
+<li>Choose the first replica (not necessarily in the ISR) that comes back to life as the leader.</li>
+</ol>
+<h2 id="Replica-Management"><a href="#Replica-Management" class="headerlink" title="Replica Management"></a>Replica Management</h2><blockquote>
+<p>We attempt to balance partitions within a cluster in a round-robin fashion to avoid clustering all partitions for high-volume topics on a small number of nodes</p>
+</blockquote>
+<p>平衡的将partition分布到不同的broker中，用round-robin的方式。</p>
+<blockquote>
+<p>we elect one of the brokers as the “controller”. This controller detects failures at the broker level and is responsible for changing the leader of all affected partitions in a failed broker. If the controller fails, one of the surviving brokers will become the new controller.</p>
+</blockquote>
+<p>为每个partition进行leader选举是非常低效的，因为部署单元是broker，所以选一个borker当controller，它会去在broker层面去检测失效，并且还会去负责为失效的broker中受影响的partitions去做leader选举。如果controller broker挂了，就会选出一个新的。</p>
+<p>实际上，Kafka选举一个broker作为controller，这个controller通过 watch Zookeeper检测所有的broker failure，并负责为所有受影响的parition选举leader，再将相应的leader调整命令发送至受影响的broker。如果 controller失败了，幸存的所有broker都会尝试在Zookeeper中创建/controller-&gt;{this broker id}，如果创建成功（只可能有一个创建成功），则该broker会成为controller，若创建不成功，则该broker会等待新 controller的命令。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/Kafka_design/" data-id="cjos8tzhr000prkwkohjjy2uu" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Black_Red_tree" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/08/14/Black_Red_tree/" class="article-date">
+  <time datetime="2018-08-13T16:00:00.000Z" itemprop="datePublished">2018-08-14</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/08/14/Black_Red_tree/">Red Black Tree</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>定义：</p>
+<p>1 二分查找树</p>
+<p>2 每个node有一个额外的存储：color （红，黑）</p>
+<p>3 root 是黑</p>
+<p>4 原本在BST中指向<code>NULL</code>的pointer，在RBT中，全部指向了<code>NIL</code>,每个<code>NIL</code>是黑</p>
+<p>5 如果一个node是红，它的孩子都是黑。</p>
+<p>6 任意node开始，到<code>NIL</code>的所有路径中，包含了相同的黑node。</p>
+<p><img src="image-20180820170413020.png" alt="image-20180820170413020"></p>
+<p>### </p>
+<h3 id="Fix-Up"><a href="#Fix-Up" class="headerlink" title="Fix Up"></a>Fix Up</h3><p>什麼情況需要對<code>InsertRBT()</code>做修正？ 當新增node接在紅色的node的<code>child pointer</code>，形成紅色與紅色相連時。</p>
+<ul>
+<li>node(X)為其<code>parent</code>，顏色為紅色；</li>
+<li>node(Y)為其<code>uncle</code>，其顏色<strong>可能為紅色或黑色</strong>。</li>
+<li>node(Z)為其grandparent，顏色必定為黑色(因為node(X)是紅色)</li>
+</ul>
+<h3 id=""><a href="#" class="headerlink" title=""></a><img src="image-20180820193242724.png" alt="image-20180820193242724"></h3><p>### </p>
+<p>根據<code>uncle</code>的顏色是紅色或者黑色，可以將修正(FixUp)分成三種情形(case)：</p>
+<ol>
+<li>Case1：<code>uncle</code>是紅色，不論新增的node是node(X)的<code>leftchild</code>或<code>rightchild</code>；</li>
+<li>Case2：<code>uncle</code>是黑色，而且新增的node為node(X)的<code>rightchild</code>；</li>
+<li>Case3：<code>uncle</code>是黑色，而且新增的node為node(X)的<code>leftchild</code>。</li>
+</ol>
+<h3 id="旋转（Rotation）"><a href="#旋转（Rotation）" class="headerlink" title="旋转（Rotation）"></a>旋转（Rotation）</h3><p>搜索树的操作：Tree-Insert 和 Tree-Delete，会改变树的结构，通过<strong>旋转</strong>进行恢复。</p>
+<p><img src="image-20180815004944884.png" alt="image-20180815004944884"></p>
+<p>有左和右两种方式。</p>
+<h3 id="插入（Insertion）"><a href="#插入（Insertion）" class="headerlink" title="插入（Insertion）"></a>插入（Insertion）</h3><p>We can insert a node into an n-node red-black tree in O(lg n) time.  </p>
+<p>TODO</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://alrightchiu.github.io/SecondRound/red-black-tree-introjian-jie.html" target="_blank" rel="noopener">http://alrightchiu.github.io/SecondRound/red-black-tree-introjian-jie.html</a></p>
+<p><a href="http://alrightchiu.github.io/SecondRound/red-black-tree-insertxin-zeng-zi-liao-yu-fixupxiu-zheng.html" target="_blank" rel="noopener">http://alrightchiu.github.io/SecondRound/red-black-tree-insertxin-zeng-zi-liao-yu-fixupxiu-zheng.html</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/08/14/Black_Red_tree/" data-id="cjos8tzgf0002rkwkhturnx9c" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-JVM_max_thread" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/08/02/JVM_max_thread/" class="article-date">
+  <time datetime="2018-08-01T16:00:00.000Z" itemprop="datePublished">2018-08-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/08/02/JVM_max_thread/">JVM最大线程数</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="JVM最大线程数"><a href="#JVM最大线程数" class="headerlink" title="JVM最大线程数"></a>JVM最大线程数</h1><p>至于操作系统栈大小（ulimit -s）：这个配置只影响进程的初始线程；后续用pthread_create创建的线程都可以指定栈大小。HotSpot VM为了能精确控制Java线程的栈大小，特意不使用进程的初始线程（primordial thread）作为Java线程。</p>
+<p> 不显式设置-Xss或-XX:ThreadStackSize时，在Linux x64上ThreadStackSize的默认值就是1024KB</p>
+<ul>
+<li><strong>StackOverflowError</strong> (the stack size is greater than the limit), increase the value</li>
+<li><strong>OutOfMemoryError: unable to create new native thread</strong> (too many threads, each thread has a large stack), decrease it.</li>
+</ul>
+<p>JVM中可以生成的最大数量由JVM的堆内存大小、Thread的Stack内存大小、系统最大可创建的线程数量（Java线程的实现是基于底层系统的线程机制来实现的，Windows下_beginthreadex，Linux下pthread_create）三个方面影响。</p>
+<p>具体数量可以根据Java进程可以访问的最大内存（32位系统上一般2G）、堆内存、Thread的Stack内存来估算。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(MaxProcessMemory - JVMMemory – ReservedOsMemory) / (ThreadStackSize) = Number of threads</span><br></pre></td></tr></table></figure>
+<ul>
+<li>MaxProcessMemory : 进程的最大寻址空间</li>
+<li>JVMMemory : JVM内存</li>
+<li>ReservedOsMemory : 保留的操作系统内存，如Native heap，JNI之类，一般100多M</li>
+<li>ThreadStackSize : 线程栈的大小，jvm启动时由Xss指定</li>
+</ul>
+<p>综上所述：</p>
+<p>jvm的最大线程数受一下jvm参数限制</p>
+<p><strong>-Xms</strong>  最小堆内存 <strong>-Xmx</strong>  最大堆内存 <strong>-Xss</strong>   设置每个线程的堆栈大小。JDK5.0以后每个线程堆栈大小为1M</p>
+<p><strong>线程数量 = (机器本身可用内存 - JVM分配的堆内存) / Xss的值。</strong> </p>
+<p>补充下： jvm线程数还和系统的最大线程限制有关：</p>
+<p><strong>操作系统限制</strong> 系统最大可开线程数，主要受以下几个参数影响</p>
+<p>​        /proc/sys/kernel/pid_max</p>
+<p>​        /proc/sys/kernel/thread-max <strong>系统可以生成最大线程数量</strong></p>
+<p>​        /proc/sys/vm/max_map_count  <strong>文件包含限制一个进程可以拥有的VMA(虚拟内存区域)的数量 。单个JVM能开启的最大线程数是/proc/sys/vm/max_map_count的设置数的一半</strong></p>
+<p><a href="https://segmentfault.com/a/1190000004694232" target="_blank" rel="noopener">https://segmentfault.com/a/1190000004694232</a></p>
+<p><a href="https://www.oschina.net/translate/understanding-virtual-memory?print" target="_blank" rel="noopener">https://www.oschina.net/translate/understanding-virtual-memory?print</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/08/02/JVM_max_thread/" data-id="cjos8tzgs0009rkwkthztn677" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-mysql_explain" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/07/25/mysql_explain/" class="article-date">
+  <time datetime="2018-07-24T16:00:00.000Z" itemprop="datePublished">2018-07-25</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/07/25/mysql_explain/">Mysql explain</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>#Mysql Explain type</p>
+<p>对mysql explain后的type解释: </p>
+<p>原文：<a href="https://dev.mysql.com/doc/refman/5.6/en/explain-output.html#explain-join-types" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/5.6/en/explain-output.html#explain-join-types</a></p>
+<ul>
+<li><p>system</p>
+<p>表只有一行的情况。</p>
+</li>
+<li><p>const</p>
+<p>只有一行匹配，并且在查询的开头就命中</p>
+<p>当使用主键或者唯一索引只匹配一条数据的时候。</p>
+</li>
+<li><p>eq_ref</p>
+<p>多表关联查询的时候，只匹配到一行。</p>
+</li>
+<li><p>ref</p>
+<p>根据索引匹配到多行。 “等于”或者”不等于”判断。</p>
+</li>
+<li><p>unique_subquery</p>
+<p>使用了In的子查询， 并且子查询是主键或者唯一索引</p>
+</li>
+<li><p>index_subquery</p>
+<p>和unique_subquery类似，但是子查询是非唯一索引</p>
+</li>
+<li><p>range</p>
+<p>根据索引进行范围查找的</p>
+</li>
+<li><p>index</p>
+<p>对索引的扫描</p>
+<p>只select索引中的列，不加where条件，就是index类型。</p>
+</li>
+<li><p>all</p>
+<p>对全表的扫描</p>
+</li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/07/25/mysql_explain/" data-id="cjos8tzh1000jrkwkkjzfkfiw" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-FeignClient" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/07/15/FeignClient/" class="article-date">
+  <time datetime="2018-07-14T16:00:00.000Z" itemprop="datePublished">2018-07-15</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/07/15/FeignClient/">FeignClient</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>从源码分析FeignClient</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">Feign</span></span></span><br></pre></td></tr></table></figure>
+<p>Feign这个类是为了简化对<strong>http apis</strong>的请求。</p>
+<p>通过 <strong>newInstance</strong> 方法，产生<strong>Target</strong>，来代表对应的Http Apis。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> &lt;T&gt; <span class="function">T <span class="title">newInstance</span><span class="params">(Target&lt;T&gt; target)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>产生一个 http api的实例。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Target</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line">  <span class="comment">/* The type of the interface this target applies to. */</span></span><br><span class="line">  <span class="function">Class&lt;T&gt; <span class="title">type</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* configuration key associated with this target. */</span></span><br><span class="line">  <span class="function">String <span class="title">name</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* base HTTP URL of the target. */</span></span><br><span class="line">  <span class="function">String <span class="title">url</span><span class="params">()</span></span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">//从 template中产生Request</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> Request <span class="title">apply</span><span class="params">(RequestTemplate input)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>apply被用来产生request，基于传入的template input，加入header和参数，产生一个不可变的Request。</p>
+<p>例如：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Request <span class="title">apply</span><span class="params">(RequestTemplate input)</span> </span>&#123;</span><br><span class="line">    input.insert(<span class="number">0</span>, url());</span><br><span class="line">    input.replaceHeader(&amp;quot;X-Auth&amp;quot;, currentToken);</span><br><span class="line">    <span class="keyword">return</span> input.asRequest();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>target的主要作用是产生Request， 作为Http请求的参数。</p>
+<p>Feign的一个默认实现：ReflectiveFeign，newInstance最终返回了一个动态代理:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Proxy.newProxyInstance(ClassLoader loader,</span><br><span class="line">                       Class&lt;?&gt;[] interfaces,</span><br><span class="line">                       InvocationHandler h)</span><br></pre></td></tr></table></figure>
+<p>最重要的是要看InvocationHandler的实现。</p>
+<p>在初始化 Feign的时候，在Feign.Builder中，选择的FeignInvocationHandler作为InvocationHandler的实现。</p>
+<p>FeignInvocationHandler中，包含多个MethodHandler, 默认实现为：SynchronousMethodHandler。</p>
+<p>在SynchronousMethodHandler中，包含着Client和Retryer，这个类中，实现了最终的Http的请求。</p>
+<p><strong>MethodHandler</strong></p>
+<p>SynchronousMethodHandler , 在这个类里面最终实现了对 http client 的调用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SynchronousMethodHandler</span> <span class="keyword">implements</span> <span class="title">MethodHandler</span> </span>&#123;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Client client;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Retryer retryer;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>InvocationHandler</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FeignInvocationHandler</span> <span class="keyword">implements</span> <span class="title">InvocationHandler</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">private</span> <span class="keyword">final</span> Target target;</span><br><span class="line">   <span class="keyword">private</span> <span class="keyword">final</span> Map&lt;Method, MethodHandler&gt; dispatch;</span><br></pre></td></tr></table></figure>
+<p>同时，在Feign.Builder中，</p>
+<p>Client使用的是java默认的java.net.HttpUrlConnection</p>
+<p>Retryer,的默认值为重试5次。</p>
+<h3 id="Feign-hystrix"><a href="#Feign-hystrix" class="headerlink" title="Feign-hystrix"></a>Feign-hystrix</h3><p>对Feign的扩展：</p>
+<p>1 容许Feign的接口返回HystrixCommand 或者 rx.Observable (通过HystrixDelegatingContract 来实现)</p>
+<p>2 对接口调用进行包装，加入了断路器。(通过HystrixInvocationHandler实现)</p>
+<p>在HystrixInvocationHandler中，invoke方法，对httpclient的调用，使用HystrixCommand的方式：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">HystrixCommand&lt;Object&gt; hystrixCommand = <span class="keyword">new</span> HystrixCommand&lt;Object&gt;(setterMethodMap.get(method)) &#123;</span><br><span class="line">     <span class="meta">@Override</span></span><br><span class="line">     <span class="function"><span class="keyword">protected</span> Object <span class="title">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">       <span class="keyword">try</span> &#123;</span><br><span class="line">         <span class="keyword">return</span> HystrixInvocationHandler.<span class="keyword">this</span>.dispatch.get(method).invoke(args);</span><br><span class="line">       &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">         <span class="keyword">throw</span> e;</span><br><span class="line">       &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">         <span class="keyword">throw</span> (Error) t;</span><br><span class="line">       &#125;</span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="与spring的集成"><a href="#与spring的集成" class="headerlink" title="与spring的集成"></a>与spring的集成</h3><p>在spring-cloud-netflix-core中，有spring和feign集成的代码。</p>
+<p>在FeignClientFactoryBean中,重新定义了 Feign.Builder:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FeignClientFactoryBean</span> <span class="keyword">implements</span> <span class="title">FactoryBean</span>&lt;<span class="title">Object</span>&gt;, <span class="title">InitializingBean</span>,</span></span><br><span class="line"><span class="class">		<span class="title">ApplicationContextAware</span> </span>&#123;</span><br><span class="line">		</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Object <span class="title">getObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">		FeignContext context = applicationContext.getBean(FeignContext.class);</span><br><span class="line">        <span class="comment">//从FeignContext中生成Feign.Builder</span></span><br><span class="line">		Feign.Builder builder = feign(context);</span><br><span class="line">        <span class="keyword">if</span> (!StringUtils.hasText(<span class="keyword">this</span>.url)) &#123;</span><br><span class="line">			String url;<span class="comment">//处理url</span></span><br><span class="line">            <span class="comment">//loadbalance ribbon?</span></span><br><span class="line">			<span class="keyword">return</span> loadBalance(builder, context,</span><br><span class="line">                               <span class="keyword">new</span> HardCodedTarget&lt;&gt;(<span class="keyword">this</span>.type,</span><br><span class="line">					<span class="keyword">this</span>.name, url));</span><br><span class="line">		&#125;</span><br><span class="line">		</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在spring中，Feign的初始化依赖于FeignContext。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FeignContext</span> <span class="keyword">extends</span> <span class="title">NamedContextFactory</span>&lt;<span class="title">FeignClientSpecification</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">FeignContext</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">super</span>(FeignClientsConfiguration.class, <span class="string">"feign"</span>, <span class="string">"feign.client.name"</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>NamedContextFactory</code>可以创建一组子上下文, 每个子上下文中可以使用一组的Specification来定义bean</p>
+<h1 id="Ribbon"><a href="#Ribbon" class="headerlink" title="Ribbon"></a>Ribbon</h1><p>一个客户端负载均衡器，运行在客户端上。</p>
+<p>###LoadBalancerClient </p>
+<p>最重要的一个类： LoadBalancerClient  负载均衡器的客户端。</p>
+<p>继承关系： ServiceInstanceChooser &lt;- LoadBalancerClient &lt;- RibbonLoadBalancerClient</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Represents a client side load balancer</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">LoadBalancerClient</span> <span class="keyword">extends</span> <span class="title">ServiceInstanceChooser</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">   <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * execute request using a ServiceInstance from the LoadBalancer for the specified</span></span><br><span class="line"><span class="comment">    * service </span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">   &lt;T&gt; <span class="function">T <span class="title">execute</span><span class="params">(String serviceId, LoadBalancerRequest&lt;T&gt; request)</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="comment">//......</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Implemented by classes which use a load balancer to choose a server to</span></span><br><span class="line"><span class="comment"> * send a request to.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ServiceInstanceChooser</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Choose a ServiceInstance from the LoadBalancer for the specified service</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">ServiceInstance <span class="title">choose</span><span class="params">(String serviceId)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"> <span class="class"><span class="keyword">class</span> <span class="title">RibbonLoadBalancerClient</span> <span class="keyword">implements</span> <span class="title">LoadBalancerClient</span> </span>&#123;</span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function">T <span class="title">execute</span><span class="params">(String serviceId, LoadBalancerRequest&lt;T&gt; request)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="comment">//最终选择service的任务还是交与ILoadBalancer来做。</span></span><br><span class="line">   ILoadBalancer loadBalancer = getLoadBalancer(serviceId);</span><br><span class="line">   Server server = getServer(loadBalancer);</span><br><span class="line">   <span class="keyword">if</span> (server == <span class="keyword">null</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"No instances available for "</span> + serviceId);</span><br><span class="line">   &#125;</span><br><span class="line">   RibbonServer ribbonServer = <span class="keyword">new</span> RibbonServer(serviceId, server, isSecure(server,</span><br><span class="line">         serviceId), serverIntrospector(serviceId).getMetadata(server));</span><br><span class="line"></span><br><span class="line">   <span class="keyword">return</span> execute(serviceId, ribbonServer, request);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>###ILoadBalancer</p>
+<p>最终选择service的任务还是交与ILoadBalancer来做。</p>
+<p>ILoadBalancer &lt;- BaseLoadBalancer &lt;- DynamicServerListLoadBalancer</p>
+<p>在DynamicServerListLoadBalancer中，是如何获取和刷新服务列表的？</p>
+<p>首先在构造函数中-&gt;initWithNiwsConfig() -&gt; restOfInit() -&gt; updateListOfServers()</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DynamicServerListLoadBalance</span></span>&#123;</span><br><span class="line"><span class="meta">@VisibleForTesting</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">updateListOfServers</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    List&lt;T&gt; servers = <span class="keyword">new</span> ArrayList&lt;T&gt;();</span><br><span class="line">    <span class="keyword">if</span> (serverListImpl != <span class="keyword">null</span>) &#123;</span><br><span class="line">        servers = serverListImpl.getUpdatedListOfServers();</span><br><span class="line">        LOGGER.debug(<span class="string">"List of Servers for &#123;&#125; obtained from Discovery client: &#123;&#125;"</span>,</span><br><span class="line">                getIdentifier(), servers);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (filter != <span class="keyword">null</span>) &#123;</span><br><span class="line">            servers = filter.getFilteredListOfServers(servers);</span><br><span class="line">            LOGGER.debug(<span class="string">"Filtered List of Servers for &#123;&#125; obtained from Discovery client: &#123;&#125;"</span>,</span><br><span class="line">                    getIdentifier(), servers);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    updateAllServerList(servers);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ServerList 的具体实现类： serverListImpl 来负责最终的刷新。ServerList 有各种实现，比方说用Consul的话，实现就是ConsulServerList。</p>
+<p>参考：<a href="https://blog.csdn.net/forezp/article/details/74820899" target="_blank" rel="noopener">https://blog.csdn.net/forezp/article/details/74820899</a></p>
+<h3 id="FeignLoadBalancer"><a href="#FeignLoadBalancer" class="headerlink" title="FeignLoadBalancer"></a>FeignLoadBalancer</h3><p>CachingSpringLoadBalancerFactory 会返回一个 FeignLoadBalancer</p>
+<h3 id="Robbin会retry："><a href="#Robbin会retry：" class="headerlink" title="Robbin会retry："></a>Robbin会retry：</h3><p>在CachingSpringLoadBalancerFactory中，创建FeignLoadBalancer的时候</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> FeignLoadBalancer <span class="title">create</span><span class="params">(String clientName)</span> </span>&#123;</span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">this</span>.cache.containsKey(clientName)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">this</span>.cache.get(clientName);</span><br><span class="line">   &#125;</span><br><span class="line">   IClientConfig config = <span class="keyword">this</span>.factory.getClientConfig(clientName);</span><br><span class="line">   ILoadBalancer lb = <span class="keyword">this</span>.factory.getLoadBalancer(clientName);</span><br><span class="line">   ServerIntrospector serverIntrospector = <span class="keyword">this</span>.factory.getInstance(clientName, ServerIntrospector.class);</span><br><span class="line">    <span class="comment">//通过enableRetry来控制是否重试</span></span><br><span class="line">   FeignLoadBalancer client = enableRetry ? <span class="keyword">new</span> RetryableFeignLoadBalancer(lb, config, serverIntrospector,</span><br><span class="line">         loadBalancedRetryPolicyFactory) : <span class="keyword">new</span> FeignLoadBalancer(lb, config, serverIntrospector);</span><br><span class="line">   <span class="keyword">this</span>.cache.put(clientName, client);</span><br><span class="line">   <span class="keyword">return</span> client;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Feign-and-Ribbon"><a href="#Feign-and-Ribbon" class="headerlink" title="Feign and Ribbon"></a>Feign and Ribbon</h3><p>当结合使用Feign和Ribbon的时候， SynchronousMethodHandler 中的client 类型为：LoadBalancerFeignClient。 在execute的时候，会创建一个<strong>FeignLoadBalancer</strong> 来执行executeWithLoadBalancer()，这个函数的作用是把请求交给选中的服务来处理，而不是指定一个服务。FeignLoadBalancer包含一个ILoadBalancer</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">LoadBalancerFeignClient</span> <span class="keyword">implements</span> <span class="title">Client</span></span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Response <span class="title">execute</span><span class="params">(Request request, Request.Options options)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			URI asUri = URI.create(request.url());</span><br><span class="line">			String clientName = asUri.getHost();</span><br><span class="line">			URI uriWithoutHost = cleanUrl(request.url(), clientName);</span><br><span class="line">			FeignLoadBalancer.RibbonRequest ribbonRequest = <span class="keyword">new</span> FeignLoadBalancer.RibbonRequest(</span><br><span class="line">					<span class="keyword">this</span>.delegate, request, uriWithoutHost);</span><br><span class="line"></span><br><span class="line">			IClientConfig requestConfig = getClientConfig(options, clientName);</span><br><span class="line">			<span class="keyword">return</span> lbClient(clientName).executeWithLoadBalancer(ribbonRequest,</span><br><span class="line">					requestConfig).toResponse();</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">catch</span> (ClientException e) &#123;</span><br><span class="line">			IOException io = findIOException(e);</span><br><span class="line">			<span class="keyword">if</span> (io != <span class="keyword">null</span>) &#123;</span><br><span class="line">				<span class="keyword">throw</span> io;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(e);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">executeWithLoadBalancer</span><span class="params">(<span class="keyword">final</span> S request, <span class="keyword">final</span> IClientConfig requestConfig)</span> <span class="keyword">throws</span> ClientException </span>&#123;</span><br><span class="line">    RequestSpecificRetryHandler handler = getRequestSpecificRetryHandler(request, requestConfig);</span><br><span class="line">    LoadBalancerCommand&lt;T&gt; command = LoadBalancerCommand.&lt;T&gt;builder()</span><br><span class="line">            .withLoadBalancerContext(<span class="keyword">this</span>)</span><br><span class="line">            .withRetryHandler(handler)</span><br><span class="line">            .withLoadBalancerURI(request.getUri())</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">//在这个里面选择一个服务进行调用。</span></span><br><span class="line">        <span class="keyword">return</span> command.submit(</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/07/15/FeignClient/" data-id="cjos8tzhp000nrkwkhowyom0o" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-HTTP-2" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/07/02/HTTP-2/" class="article-date">
+  <time datetime="2018-07-01T16:00:00.000Z" itemprop="datePublished">2018-07-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/07/02/HTTP-2/">HTTP 2</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>http2协议不是为了推翻http1，重新设计，它的目标是为了性能的提升等等，一个最主要的目标是容许用户使用一个连接来访问网站。</p>
+<p>http2的官方网站：<a href="https://http2.github.io/" target="_blank" rel="noopener">https://http2.github.io/</a></p>
+<h3 id="RFC-7540"><a href="#RFC-7540" class="headerlink" title="RFC 7540"></a>RFC 7540</h3><p><a href="https://httpwg.org/specs/rfc7540.html" target="_blank" rel="noopener">https://httpwg.org/specs/rfc7540.html</a></p>
+<p>Hypertext Transfer Protocol Version 2 (HTTP/2)</p>
+<p>之前：</p>
+<p>In particular, HTTP/1.0 allowed only one request to be outstanding at a time on a given TCP connection. HTTP/1.1 added request pipelining, but this only partially addressed request concurrency and still suffers from head-of-line blocking. </p>
+<p>Therefore, HTTP/1.0 and HTTP/1.1 clients that need to make many requests use multiple connections to a server in order to achieve concurrency and thereby reduce latency</p>
+<p>Http 头 ：</p>
+<p>1 无法压缩</p>
+<p>2 每次请求都重复传递</p>
+<h4 id="HTTP2-Overview"><a href="#HTTP2-Overview" class="headerlink" title="HTTP2 Overview"></a>HTTP2 Overview</h4><p>http2支持1的所有核心特性，并且更加高效。<strong>Frame</strong>是http2中的最基本的单位。</p>
+<h2 id="Stream"><a href="#Stream" class="headerlink" title="Stream"></a>Stream</h2><p>stream 是一个独立的，双向的Frame的队列，这些frame在server 和client之间通过Http/2 传送。</p>
+<p>stream有以下特性：</p>
+<p>1 一个HTTP/2链接可以包含多个stream</p>
+<p>2 stream可以被client和server创建</p>
+<p>3 stream可以被client和server关闭</p>
+<p>4 frame的顺序很重要</p>
+<p>5 streams 被一个数字唯一标识</p>
+<h3 id="stream的状态"><a href="#stream的状态" class="headerlink" title="stream的状态"></a>stream的状态</h3><h4 id="idle"><a href="#idle" class="headerlink" title="idle"></a>idle</h4><p>所有的stream开始于这个状态。 </p>
+<ul>
+<li>接受或者发出一个  HEADERS frame 会导致这个steam 变成”open” </li>
+<li>向其他的stream发出一个 PUSH_PROMISE frame，本stream会变为”reserved(local)”状态</li>
+<li>从其他的stream收到一个 PUSH_PROMISE frame，本stream会变为”reserved(remote)”状态</li>
+</ul>
+<h4 id="reserved-local-remote"><a href="#reserved-local-remote" class="headerlink" title="reserved(local/remote)"></a>reserved(local/remote)</h4><p>用于实现push，暂时不讨论</p>
+<h4 id="open"><a href="#open" class="headerlink" title="open"></a>open</h4><p>处于这个状态的stream，可以被两方使用，发送各种frames。</p>
+<ul>
+<li>双方都可以发送一个标记了 END_STREAM的frame，来使stream进入”half-closed”状态。发送 END_STREAM的一方，stream进入”half-closed(local)”状态，收到 END_STREAM的一方，stream进入”half-closed(remote)”状态。</li>
+<li>双方也可以发送一个RST_STREAM frame，导致双方进入”closed”状态</li>
+</ul>
+<h4 id="half-closed-local"><a href="#half-closed-local" class="headerlink" title="half-closed(local)"></a>half-closed(local)</h4><p>half-closed(remote)  –END_STREAM flag –&gt; half-close(local) 会是两边都进入“close”状态</p>
+<p>或者收到一个 RST_STREAM ，也会直接进入“close”状态。</p>
+<p>half-closed 有什么用处？</p>
+<h3 id="Stream-Identifiers"><a href="#Stream-Identifiers" class="headerlink" title="Stream Identifiers"></a>Stream Identifiers</h3><p>stream 的标识符是一个31bit的无符号int。client端使用奇数，server端使用偶数。id为0的stream被用来作为控制信息的连接。</p>
+<p>新创建的stream的标号必须比当前endpoint上现有的要大。</p>
+<h3 id="Stream-concurrency"><a href="#Stream-concurrency" class="headerlink" title="Stream concurrency"></a>Stream concurrency</h3><p>TODO</p>
+<h3 id="Flow-Control"><a href="#Flow-Control" class="headerlink" title="Flow Control"></a>Flow Control</h3><p>HTTP/2通过WINDOW_UPDATE frame来支持流量控制。</p>
+<p>HTTP/2“流”的流量控制的目标是：在不改变协议的情况下允许使用多种流量控制算法。</p>
+<p>HTTP/2的流量控制有一下特征：</p>
+<ul>
+<li>流量控制是特定于一个连接的。</li>
+<li>流量控制是基于WINDOW_UPDATE帧的。接收方公布自己打算在每个流以及整个连接上分别接收多少字节。这是一个以<strong>信用</strong>为基础的方案。</li>
+<li>流量控制是有方向的，由接收者全面控制。</li>
+<li>无论是新流还是整个连接，流量控制窗口的初始值是65535字节</li>
+<li>帧的类型决定了流量控制是否适用于帧。目前，只有DATA帧服从流量控制，所有其它类型的帧并不消耗流量控制窗口的空间。这保证了重要的控制帧不会被流量控制阻塞。</li>
+<li>流量控制不能被禁用</li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/07/02/HTTP-2/" data-id="cjos8tzgp0006rkwkjlg7qj00" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-DBs_B+tree" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/16/DBs_B+tree/" class="article-date">
+  <time datetime="2018-05-15T16:00:00.000Z" itemprop="datePublished">2018-05-16</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/16/DBs_B+tree/">B+树</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Mysql中的B-树"><a href="#Mysql中的B-树" class="headerlink" title="Mysql中的B+树"></a>Mysql中的B+树</h1><h3 id="B-树"><a href="#B-树" class="headerlink" title="B-树"></a>B-树</h3><p>B树的实现：</p>
+<p><a href="https://github.com/google/btree/blob/master/btree.go" target="_blank" rel="noopener">https://github.com/google/btree/blob/master/btree.go</a></p>
+<h2 id="引用："><a href="#引用：" class="headerlink" title="引用："></a>引用：</h2><p><a href="https://www.jianshu.com/p/486a514b0ded" target="_blank" rel="noopener">https://www.jianshu.com/p/486a514b0ded</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/16/DBs_B+tree/" data-id="cjos8tzgo0005rkwknj4xgdoo" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-DBs-Replication" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/07/DBs-Replication/" class="article-date">
+  <time datetime="2018-05-06T16:00:00.000Z" itemprop="datePublished">2018-05-07</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/07/DBs-Replication/">DBs replication</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>replication的定义：在不同的联网的机器上，保存相同的数据。</p>
+<h3 id="需要replication的理由"><a href="#需要replication的理由" class="headerlink" title="需要replication的理由"></a>需要replication的理由</h3><ul>
+<li>使数据地理上离用户更近</li>
+<li>保障系统的可用性</li>
+<li>应付大量的读请求</li>
+</ul>
+<p>replication的主要难点在于<strong>处理数据的变更</strong>。</p>
+<p>在实现replication的时候，有许多可以权衡的点：同步或者异步，怎么处理失效的replicas。</p>
+<h3 id="主从模型"><a href="#主从模型" class="headerlink" title="主从模型"></a>主从模型</h3><p>被好多数据库产品采用：mysql， PostgresSQL，MongoDB，RethinkDB。</p>
+<h4 id="同步异步"><a href="#同步异步" class="headerlink" title="同步异步"></a>同步异步</h4><p>其中的一个重要的细节：备份是同步还是异步发生的，在关系数据库中，这个选项大多是可配置的，其他的数据库，一般会选择其中一种情况。所有的从节点的同步，无论是全同步，或是全异步都有问题：全同步的情况，如果一个节点断了，就会导致整个系统的写入变慢；全异步的情况，数据又容易丢失。一般采用混合的方式：一个从同步写，其他的采用异步，如果同步写的从节点断线了，可以立刻用其他的节点来补上，这样的方式，通常被叫做：<strong>semi-synchronous  </strong>。在持久性上的弱化，莫阿斯</p>
+<h4 id="新增从节点"><a href="#新增从节点" class="headerlink" title="新增从节点"></a>新增从节点</h4><p>不管是扩容还是替换掉废节点，都需要做这个操作。怎么保证新增的从节点和主节点的同步？</p>
+<p>在不停服务的情况下，一般这样操作：</p>
+<p>1 获取主节点某个时刻的snapshot。</p>
+<p>2 复制这个snapshot到新增的从节点。</p>
+<p>3 新从节点和主节点获取时间点之后的所有更新。这个需要一个准确的位置，在PostgresSQL中叫’log sequence number’，在mysql中叫‘binlog coordinates’。</p>
+<p>4 当从snapshot开始的所有数据变更都被同步了之后，这个从节点可以像正常的从节点一样了。</p>
+<h4 id="处理节点掉线"><a href="#处理节点掉线" class="headerlink" title="处理节点掉线"></a>处理节点掉线</h4><p>为了保证整个系统长时间运行，需要有这样的能力，保证任何节点 （主从）挂掉都不会影响整个系统的可用性。</p>
+<p>从节点挂掉：Catch-up recovery </p>
+<p>被重新启动的从节点会向主节点请求这期间的所有数据改动。</p>
+<p>主节点挂掉：Failover </p>
+<p>失效转移可以人工或者自动执行。但都包含以下几步：</p>
+<p>1 主节点的失效检测</p>
+<p>2 选举出新的主节点</p>
+<p>3 修改配置，使用新的主节点</p>
+<p>但是也存在很多难以解决的问题：</p>
+<p>1 在异步同步的情况下，如果保障选出的新leader有最新的更新。</p>
+<p>2 丢弃的写操作很危险。</p>
+<p>3 脑裂</p>
+<p>4 主节点失效检测的timeout选取</p>
+<h4 id="复制日志-replication-log-的实现"><a href="#复制日志-replication-log-的实现" class="headerlink" title="复制日志(replication log)的实现"></a>复制日志(replication log)的实现</h4><p>1 Statement-based replication</p>
+<p>最简单的方式，主节点记录所有收到的请求，并转发给从节点。mysql 5.1 之前都在用这种方式。</p>
+<p>2 Write-ahead log (WAL) shipping</p>
+<p>几乎都在使用WAL日志，不管是log-structured 存储引擎（SSTable 和 LSM-tree）还是B-tree存储引擎。</p>
+<p>但还是有他的坏处：太底层了。一条WAL日志记录了一个磁盘block上的某个byte的变更。这个坏处导致了relication和存储引擎的实现耦合太紧。</p>
+<p>3Logical (row-based) log replication</p>
+<p>也就是logical log，和底层的存储引擎解耦。 Mysql的binlog(when configured to use row-based replication) 就是这一类。</p>
+<p>4 Trigger-based replication</p>
+<p>这种方式，一般是依赖外部工具来实现，更容易带来bug，但是更灵活。</p>
+<h4 id="read-after-write-consistency"><a href="#read-after-write-consistency" class="headerlink" title="read-after-write consistency"></a>read-after-write consistency</h4><p>写入后，由主从同步的延迟，可能读不到写入的变更。 read-after-write consistency可以防止这样的情况 .</p>
+<p>怎么做到这种一致性：有这样几种思路， 1 任何可能被当前用户修改的数据的读取，都从主节点进行。举个例子：用户的profile，我们就可以永远从主库读取自己的profile， 从从库读取他人的profile。2 如果上面的方法不行，可以记录updatetime，然后在每次写入后的一段时间内都读取主库。3 客户端可以记录一个它最近一次写操作的“时间戳”，然后，每次读取的时候都带着这个“时间戳”。系统来保障，服务读请求的从节点，自身同步过的写操作的“时间戳”要大于读请求中带着的。4 如果涉及到多数据中心，会更加复杂。</p>
+<h4 id="Monotonic-Read（单调读）"><a href="#Monotonic-Read（单调读）" class="headerlink" title="Monotonic Read（单调读）"></a>Monotonic Read（单调读）</h4><p>当一个客户端多次进行读时，他不会感觉到时间倒流，每次读到的结果一定是相同的或者更新的。</p>
+<p>一个实现的方法是：保障每个客户端被绑定在一个replica上，</p>
+<h4 id="Consistent-Prefix-Reads"><a href="#Consistent-Prefix-Reads" class="headerlink" title="Consistent Prefix Reads"></a>Consistent Prefix Reads</h4><p>确保的是：无论任何一个客户端，他读到的写操作的顺序是和实际的写入顺序是一致的。</p>
+<h3 id="多主模型"><a href="#多主模型" class="headerlink" title="多主模型"></a>多主模型</h3><p>之前说的都是单主模型：只有一个主节点接受写操作。但是如果因为什么原因无法连接上主节点，导致的结果就是，无法向数据库写入。自然的，产生了多主模型。</p>
+<h4 id="使用场景"><a href="#使用场景" class="headerlink" title="使用场景"></a>使用场景</h4><p>1 多数据中心：每个中心一个leader。这样比单leader有不少好处，但是相应的坏处是：数据可能被并发的修改，在不同的数据中心之间，这个“冲突”必须被解决。</p>
+<p>2 Clients with offline operation ：一部分datacenter离线一段时间，然后又回到集群。离开的那段时间，也可以正常运行。比方说 CouchDB</p>
+<p>3 Collaborative editing ：一般我们不把协同编辑功能，当做一个数据库的replication的问题来看，但是他们有好多相似的地方。</p>
+<h4 id="解决写冲突"><a href="#解决写冲突" class="headerlink" title="解决写冲突"></a>解决写冲突</h4><ul>
+<li>冲突检测：多主的情况下，每个写入都是成功的，冲突只能在后续的一个时间点被检测出来，那个时候，已经无法让用户去解决冲突。 如果要同步的冲突检测，就只能等待所有的replica都同步完，这个和单leader没什么区别。</li>
+<li>避免冲突：最简单的解决冲突的办法就是避免冲突。举个🌰：用户可以修改自己的信息，可以让这个用户一直路由到同一个dc。但是当用户旅游到了其他地方，就近接入了另外一个dc， 这个方法就失效了， 冲突就会出现。</li>
+<li>Converging toward a consistent state： 如果是单个leader，我们可以知道更新操作的顺序，如果有对同一个field的更新操作，最后一个更新决定了这个field的值。如果是多个leader，这个顺序很难知道。</li>
+</ul>
+<p>收敛的方法：</p>
+<p>1 每一个写操作都带一个唯一Id。冲突的几个版本中，id大的胜利。</p>
+<p>2 在一个额外的地方记录冲突，后续解决。可能通知用户来选择。</p>
+<ul>
+<li>自定义解决冲突的逻辑：让应用去解决冲突是大部分数据库的一般做法，大部分多主的数据库工具可以自定义冲突解决逻辑。一般有2个时机可以执行冲突解决逻辑：当冲突被检测到或者当读请求到来的时候。</li>
+</ul>
+<p>自动冲突解决：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">• Conflict-free replicated datatypes (CRDTs) [32, 38] are a family of data structures for sets, maps, ordered lists, counters, etc. that can be concurrently edited by multiple users, and which automatically resolve conflicts in sensible ways. Some CRDTs have been implemented in Riak 2.0 [39, 40].</span><br><span class="line">• Mergeable persistent data structures [41] track history explicitly, similarly to the Git version control system, and use a three-way merge function (whereas CRDTs use two-way merges).</span><br><span class="line">• Operational transformation [42] is the conflict resolution algorithm behind col‐ laborative editing applications such as Etherpad [30] and Google Docs [31]. It was designed particularly for concurrent editing of an ordered list of items, such as the list of characters that constitute a text document.</span><br></pre></td></tr></table></figure>
+<h3 id="无主"><a href="#无主" class="headerlink" title="无主"></a>无主</h3><p>废除主节点，任何节点都可以接受写操作。比较有代表性的此类数据库：Dynamo，Riak，Cassandra。</p>
+<h4 id="有节点挂掉时的写入"><a href="#有节点挂掉时的写入" class="headerlink" title="有节点挂掉时的写入"></a>有节点挂掉时的写入</h4><p>假设有个3个节点，其中一个挂掉。 写入的时候，是能更新其余2个节点。当挂掉的节点又启动起来，不能立刻与另外2个同步。这个时候如果读数据，可能会得到未更新的结果（读请求落到刚刚恢复的节点）。过一会，数据都同步了，读也会全部为新的了。</p>
+<p>怎么解决这个问题？读请求也并行的发到多个节点，如果得到了多个结果，选择“<strong>版本号</strong>”最大的结果。</p>
+<h4 id="Read-repair-and-anti-entropy"><a href="#Read-repair-and-anti-entropy" class="headerlink" title="Read repair and anti-entropy"></a>Read repair and anti-entropy</h4><p>副本集群应该保证最终集群中的数据是一致的。一个离开的节点，又回到了集群，怎么保证他的同步？和Dynamo类似的数据库，一般会采用两种方法，来实现：</p>
+<ul>
+<li><p>Read repair </p>
+<p>读取的时候，会读多个节点，把其中落后的节点，通知他们补上。</p>
+</li>
+<li><p>Anti-entropy process </p>
+</li>
+</ul>
+<p>​       有一个后台的任务不断的去发现节点中的不同，进行修复。</p>
+<h4 id="Quorums-for-reading-and-writing-（读写的法定人数）"><a href="#Quorums-for-reading-and-writing-（读写的法定人数）" class="headerlink" title="Quorums for reading and writing （读写的法定人数）"></a>Quorums for reading and writing （读写的法定人数）</h4><p>假设有n个replicas，写入的时候，必须有至少w个节点写入成功，读的时候，至少从r个节点中读取。只要 <strong>w + r &gt; n</strong> ，就可以保证读的时候，总可以读到最新的结果，因为读写至少有一个节点是重合的。在类Dynamo数据库中，w，r，n都是可配置的。</p>
+<h4 id="Sloppy-Quorums-and-Hinted-Handoff"><a href="#Sloppy-Quorums-and-Hinted-Handoff" class="headerlink" title="Sloppy Quorums and Hinted Handoff"></a>Sloppy Quorums and Hinted Handoff</h4><p>无主的集群，可以忍受任意一个节点的挂掉， 因为不需要fallover， 也可以忍受个别节点变慢，因为因为只需要w或r个节点返回就可以。所以这个导致了，它十分适合需要 <strong>高可用</strong>，<strong>低延迟</strong>，但是可以容忍偶发的 <strong>stale reads</strong>。</p>
+<p>如果因为网络原因，导致一个clinet只能看到一部分的节点，这样会导致他的读写无法达到法定人数。</p>
+<p>这个时候，如果选择？ </p>
+<p>1 失败。</p>
+<p>2 </p>
+<p>Hinted Handoff：当需要向一个已知宕机的节点写入数据的时候，Cassandra会将数据作为提示数据写入另一个正常的复本节点。稍后会对恢复的宕机节点进行数据重放。如果所有的复本节点都不能访问，则将提示数据写入到协调者本地。（能够理解提示的含义么） 当一个节点，通过Gossip发现它所存储的提示数据的所属节点恢复正常，他就会将提示数据发送到其所属目标节点。</p>
+<p>缩短了暂时失败的节点恢复一致的时间。尤其是在一些奇怪的网络问题下，更加有用。（网络短时间不可用之类）</p>
+<p>Hinted Handoff并不是修复机制的代替品。</p>
+<p>上面的方式也叫做 Sloppy quorums，它可以有效的增加写入的可用性，但是它不是真正的法定人数，不能保证读到最新的数据。</p>
+<h4 id="Limitations-of-Quorum-Consistency-（Quorum-Consistency-的限制）"><a href="#Limitations-of-Quorum-Consistency-（Quorum-Consistency-的限制）" class="headerlink" title="Limitations of Quorum Consistency （Quorum Consistency 的限制）"></a>Limitations of Quorum Consistency （Quorum Consistency 的限制）</h4><p>就算 w + r &gt; n， 也是有一些边界case，会返回不是最新的结果。</p>
+<p>1 sloppy quorum </p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/07/DBs-Replication/" data-id="cjos8tzho000mrkwkdvtti7l1" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-DBs-mongoDB" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/05/06/DBs-mongoDB/" class="article-date">
+  <time datetime="2018-05-05T16:00:00.000Z" itemprop="datePublished">2018-05-06</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/05/06/DBs-mongoDB/">MongoDB</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>MongoDB is a document database with the scalability and flexibility that you want with the querying and indexing that you need</p>
+</blockquote>
+<p>上面是mongodb官方网站对 mongoDB的描述。mongoDB有什么不一样的地方？</p>
+<h3 id="特点1：flexibility"><a href="#特点1：flexibility" class="headerlink" title="特点1：flexibility"></a>特点1：flexibility</h3><p>可以很方便的扩展结构，使用JSON-like的结构来保存document。使用过mysql的人应该深有体会，添加一个字段是多么的痛苦。</p>
+<p>在mongodb的<a href="https://resources.mongodb.com/mongodb-architects/mongodb-architecture-guide" target="_blank" rel="noopener">官方文档</a>，是这样评价Document Model的： The best way to work with Data。</p>
+<p>主要从下面4个方面来论证：</p>
+<h4 id="Easy"><a href="#Easy" class="headerlink" title="Easy"></a>Easy</h4><p>关系数据库使用<strong>tabular data model</strong>，由于数据规范化的要求，一个现实中的实体，经常需要好多表来表示。 带来的问题是：开发效率降低。虽然可以通过ORM层（object-relational mapping layer）来解决，但是也是会带来其他问题。</p>
+<p>对比之下，mongo使用了<strong>document data model</strong>，document可以以更加<em>自然</em>的方式来描述数据，就是使用一个单一的文档，把相关的数据作为sub-document嵌入其中。</p>
+<h4 id="Flexible"><a href="#Flexible" class="headerlink" title="Flexible"></a>Flexible</h4><p>document的格式可以随便变更，确实很方便。但是会带来其他的问题么？</p>
+<h4 id="Fast"><a href="#Fast" class="headerlink" title="Fast"></a>Fast</h4><p>mongoDB的数据模型，性能会更好？关系数据库可以JOIN，JOIN的性能确实不好。Mongo因为一个实体被映射为单个文档，所以不需要JOIN，所以性能更好。。虽然也提供了类似JOIN的功能：$lookup，可以跨不同的collection之间。</p>
+<h4 id="Versatile-（多功能）"><a href="#Versatile-（多功能）" class="headerlink" title="Versatile （多功能）"></a>Versatile （多功能）</h4><h2 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h2>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/05/06/DBs-mongoDB/" data-id="cjos8tzgt000brkwks23yrarl" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Java_NIO" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/20/Java_NIO/" class="article-date">
+  <time datetime="2018-04-19T16:00:00.000Z" itemprop="datePublished">2018-04-20</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/20/Java_NIO/">Java I/O模型</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="event-multiplexing"><a href="#event-multiplexing" class="headerlink" title="event multiplexing"></a>event multiplexing</h2><p>什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。</p>
+<p>UNIX Network Programming中给出的一个描述：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">What we need is the capability to tell the kernel that we want to be notified if one or more I/O conditions are ready (i.e., input is ready to be read, or the descriptor is capable of taking more output). This capability is called I/O multiplexing and is provided by the select and poll functions.</span><br></pre></td></tr></table></figure>
+<p>为了区分开下面三种I/O模型，我们需要了解下：</p>
+<p>read操作分为两个步骤：</p>
+<ul>
+<li>等待数据从网上传输过来，写入内核的buffer</li>
+<li>把数据从内核的buffer复制到用户的buffer</li>
+</ul>
+<p><strong>阻塞I/O</strong> (Blocking I/O model)：</p>
+<p>调用read时，线程会被阻塞住，直到数据写入到<strong>用户</strong>的buffer。</p>
+<p>​              问题：需要大量的线程。费内存，线程切换对CPU的开销</p>
+<p><img src="image-20180803034421623.png" alt="image-20180803034421623"></p>
+<p><strong>非阻塞I/O(Nonblocking I/O model)</strong>：</p>
+<p>read时，如果有数据，就和阻塞I/O一样；如果没有数据，就立即返回失败。</p>
+<p>​               问题：需要轮询，也很费CPU</p>
+<p><img src="image-20180803034547878.png" alt="image-20180803034547878"></p>
+<p><strong>IO多路复用</strong>(I/O Multiplexing model)：</p>
+<p>使用一个线程来检查多个文件描述符的状态，看是否有数据到达，阻塞直到有一个文件描述符有数据到达。后续的操作，可以在同一个线程里面执行，也可以另起线程。</p>
+<p><img src="image-20180803034630907.png" alt="image-20180803034630907"></p>
+<h2 id="I-O多路复用的多种实现"><a href="#I-O多路复用的多种实现" class="headerlink" title="I/O多路复用的多种实现"></a>I/O多路复用的多种实现</h2><h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *timeout)</span><br></pre></td></tr></table></figure>
+<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">poll(struct pollfd *fds, int nfds, int timeout)</span><br><span class="line"></span><br><span class="line">struct pollfd &#123;</span><br><span class="line">    int fd;</span><br><span class="line">    short events;</span><br><span class="line">    short revents;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="kqueue"><a href="#kqueue" class="headerlink" title="kqueue"></a>kqueue</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">int kqueue(void);</span><br><span class="line">int kevent(int kq, const struct kevent *changelist, int nchanges, </span><br><span class="line">           struct kevent *eventlist, int nevents, const struct timespec *timeout);</span><br><span class="line">           </span><br><span class="line">struct kevent &#123;</span><br><span class="line">     uintptr_t       ident;          /* identifier for this event */</span><br><span class="line">     int16_t         filter;         /* filter for event */</span><br><span class="line">     uint16_t        flags;          /* general flags */</span><br><span class="line">     uint32_t        fflags;         /* filter-specific flags */</span><br><span class="line">     intptr_t        data;           /* filter-specific data */</span><br><span class="line">     void            *udata;         /* opaque user data identifier */</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="NIO中的selector"><a href="#NIO中的selector" class="headerlink" title="NIO中的selector"></a>NIO中的selector</h2><p>Java doc中对它的描述：<strong>A mutiplexor of SelectableChannel objects</strong></p>
+<p>所以很自然的想到：他的底层实现应该就是基于 <strong>event multiplexing</strong> 的各个操作系统的实现： epoll， kqueue。</p>
+<p>在macOS上，就是这个  <strong><em>KQueueSelectorImpl</em></strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueSelectorImpl</span> <span class="keyword">extends</span> <span class="title">SelectorImp</span></span>&#123;</span><br><span class="line">    </span><br><span class="line">     <span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">doSelect</span><span class="params">(<span class="keyword">long</span> var1)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="keyword">boolean</span> var3 = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">if</span>(<span class="keyword">this</span>.closed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ClosedSelectorException();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line"></span><br><span class="line">            <span class="keyword">int</span> var7;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.begin();</span><br><span class="line">                var7 = <span class="keyword">this</span>.kqueueWrapper.poll(var1);</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.end();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.updateSelectedKeys(var7);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueArrayWrapper</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">poll</span><span class="params">(<span class="keyword">long</span> var1)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.updateRegistrations();</span><br><span class="line">        <span class="keyword">int</span> var3 = <span class="keyword">this</span>.kevent0(<span class="keyword">this</span>.kq, <span class="keyword">this</span>.keventArrayAddress, <span class="number">128</span>, var1);</span><br><span class="line">        <span class="keyword">return</span> var3;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">native</span> <span class="keyword">int</span> <span class="title">kevent0</span><span class="params">(<span class="keyword">int</span> var1, <span class="keyword">long</span> var2, <span class="keyword">int</span> var4, <span class="keyword">long</span> var5)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>java中的selector最终会调用到native方法 kevent0.</p>
+<h2 id="NIO中的Channel"><a href="#NIO中的Channel" class="headerlink" title="NIO中的Channel"></a>NIO中的Channel</h2><p>一个Channel（通道）代表和某一实体的连接，这个实体可以是文件、网络套接字等。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ServerSocketChannelImpl</span> <span class="keyword">extends</span> <span class="title">ServerSocketChannel</span> <span class="keyword">implements</span> <span class="title">SelChImp</span></span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> NativeDispatcher nd;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> FileDescriptor fd;</span><br><span class="line">    ServerSocket socket;</span><br><span class="line">    <span class="comment">//......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ServerSocketChannel 通过<strong>register</strong>方法与一个Selector绑定。</p>
+<h2 id="NIO中的Buffer"><a href="#NIO中的Buffer" class="headerlink" title="NIO中的Buffer"></a>NIO中的Buffer</h2><p>Buffer中有3个很重要的变量，它们是理解Buffer工作机制的关键，分别是</p>
+<ul>
+<li>capacity （总容量）</li>
+<li>position （指针当前位置）</li>
+<li>limit （读/写边界位置）</li>
+</ul>
+<p>在对Buffer进行读/写操作前，我们可以调用Buffer类提供的一些辅助方法来正确设置 position 和 limit 的值，主要有如下几个</p>
+<ul>
+<li>flip(): 设置 limit 为 position 的值，然后 position 置为0。对Buffer进行读取操作前调用。</li>
+<li>rewind(): 仅仅将 position 置0。一般是在重新读取Buffer数据前调用，比如要读取同一个Buffer的数据写入多个通道时会用到。</li>
+<li>clear(): 回到初始状态，即 limit 等于 capacity，position 置0。重新对Buffer进行写入操作前调用。</li>
+<li>compact(): 将未读取完的数据（position 与 limit 之间的数据）移动到缓冲区开头，并将 position 设置为这段数据末尾的下一个位置。其实就等价于重新向缓冲区中写入了这么一段数据。</li>
+</ul>
+<h3 id="NIO-server完整实例"><a href="#NIO-server完整实例" class="headerlink" title="NIO server完整实例"></a>NIO server完整实例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NioServer</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="comment">// 创建一个selector</span></span><br><span class="line">        Selector selector = Selector.open();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 初始化TCP连接监听通道</span></span><br><span class="line">        ServerSocketChannel listenChannel = ServerSocketChannel.open();</span><br><span class="line">        listenChannel.bind(<span class="keyword">new</span> InetSocketAddress(<span class="number">9999</span>));</span><br><span class="line">        listenChannel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">        <span class="comment">// 注册到selector（监听其ACCEPT事件）</span></span><br><span class="line">        listenChannel.register(selector, SelectionKey.OP_ACCEPT);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 创建一个缓冲区</span></span><br><span class="line">        ByteBuffer buffer = ByteBuffer.allocate(<span class="number">100</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            selector.select(); <span class="comment">//阻塞，直到有监听的事件发生</span></span><br><span class="line">            Iterator&lt;SelectionKey&gt; keyIter = selector.selectedKeys().iterator();</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 通过迭代器依次访问select出来的Channel事件</span></span><br><span class="line">            <span class="keyword">while</span> (keyIter.hasNext()) &#123;</span><br><span class="line">                SelectionKey key = keyIter.next();</span><br><span class="line">                </span><br><span class="line">                <span class="keyword">if</span> (key.isAcceptable()) &#123; <span class="comment">// 有连接可以接受</span></span><br><span class="line">                    SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();</span><br><span class="line">                    channel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">                    channel.register(selector, SelectionKey.OP_READ);</span><br><span class="line">                    </span><br><span class="line">                    System.out.println(<span class="string">"与【"</span> + channel.getRemoteAddress() + <span class="string">"】建立了连接！"</span>);</span><br><span class="line">                    </span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (key.isReadable()) &#123; <span class="comment">// 有数据可以读取</span></span><br><span class="line">                    buffer.clear();</span><br><span class="line">    </span><br><span class="line">                    <span class="comment">// 读取到流末尾说明TCP连接已断开，</span></span><br><span class="line">                    <span class="comment">// 因此需要关闭通道或者取消监听READ事件</span></span><br><span class="line">                    <span class="comment">// 否则会无限循环</span></span><br><span class="line">                    <span class="keyword">if</span> (((SocketChannel) key.channel()).read(buffer) == -<span class="number">1</span>) &#123;</span><br><span class="line">                        key.channel().close();</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125; </span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">// 按字节遍历数据</span></span><br><span class="line">                    buffer.flip();</span><br><span class="line">                    <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                        <span class="keyword">byte</span> b = buffer.get();</span><br><span class="line">                        </span><br><span class="line">                        <span class="keyword">if</span> (b == <span class="number">0</span>) &#123; <span class="comment">// 客户端消息末尾的\0</span></span><br><span class="line">                            System.out.println();</span><br><span class="line">                            </span><br><span class="line">                            <span class="comment">// 响应客户端</span></span><br><span class="line">                            buffer.clear();</span><br><span class="line">                            buffer.put(<span class="string">"Hello, Client!\0"</span>.getBytes());</span><br><span class="line">                            buffer.flip();</span><br><span class="line">                            <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                                ((SocketChannel) key.channel()).write(buffer);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            System.out.print((<span class="keyword">char</span>) b);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 已经处理的事件一定要手动移除</span></span><br><span class="line">                keyIter.remove();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="image-20180422003741608.png" alt="image-20180422003741608"></p>
+<p>上面的例子可以用上图来描述，上图中的Acceptor，就是上面的代码运行的线程。</p>
+<h2 id="NIO与传统IO的区别"><a href="#NIO与传统IO的区别" class="headerlink" title="NIO与传统IO的区别"></a>NIO与传统IO的区别</h2><p>NIO和传统IO（一下简称IO）之间第一个最大的区别是，IO是面向流的，NIO是面向缓冲区的。 Java IO面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方。此外，它不能前后移动流中的数据。如果需要前后移动从流中读取的数据，需要先将它缓存到一个缓冲区。NIO的缓冲导向方法略有不同。数据读取到一个它稍后处理的缓冲区，需要时可在缓冲区中前后移动。这就增加了处理过程中的灵活性。</p>
+<p>IO的各种流是阻塞的。这意味着，当一个线程调用read() 或 write()时，该线程被阻塞，直到有一些数据被读取，或数据完全写入。</p>
+<p>但是，由于NIO的非阻塞的特点，就导致了一些其他问题，编码复杂，而且存在半包问题。</p>
+<h2 id="Reactor模型"><a href="#Reactor模型" class="headerlink" title="Reactor模型"></a>Reactor模型</h2><h4 id="Reactor模型中的组件"><a href="#Reactor模型中的组件" class="headerlink" title="Reactor模型中的组件"></a>Reactor模型中的组件</h4><ul>
+<li>Reactor:Reactor是IO事件的派发者。</li>
+<li>Acceptor:Acceptor接受client连接，建立对应client的Handler，并向Reactor注册此Handler。</li>
+<li>Handler:和一个client通讯的实体，按这样的过程实现业务的处理。</li>
+</ul>
+<p>对应上面的NIO代码来看:</p>
+<ul>
+<li>Reactor：相当于有<strong>分发功能</strong>的Selector</li>
+<li>Acceptor：NIO中建立连接的那个判断分支</li>
+<li>Handler：消息读写处理等操作类</li>
+</ul>
+<h4 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h4><p>和NIO很相似，只是对IO读到的数据的处理（有数据可以读取的分支里面的代码），放到了<strong>Handler</strong>中。</p>
+<p><img src="image-20180422010715580.png" alt="image-20180422010715580"></p>
+<h4 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h4><p>将数据的处理代码，改为多线程实现。</p>
+<p><img src="image-20180422010833942.png" alt="image-20180422010833942"></p>
+<h4 id="主从Reactor模型"><a href="#主从Reactor模型" class="headerlink" title="主从Reactor模型"></a>主从Reactor模型</h4><p>因为Reactor既要处理IO连接请求，又要处理Read，所以出现了下面的方式，MainReactor处理IO连接请求，SubReactor处理Read等。</p>
+<p><img src="image-20180422011045446.png" alt="image-20180422011045446"></p>
+<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><p><a href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html" target="_blank" rel="noopener">https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html</a></p>
+<p><a href="http://www.ivaneye.com/2016/07/23/iomodel.html" target="_blank" rel="noopener">http://www.ivaneye.com/2016/07/23/iomodel.html</a></p>
+<p><a href="https://www.cnblogs.com/coderjun/p/7100423.html" target="_blank" rel="noopener">https://www.cnblogs.com/coderjun/p/7100423.html</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/20/Java_NIO/" data-id="cjos8tzhq000orkwkrsy2fecf" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <a class="extend prev" rel="prev" href="/">&laquo; Prev</a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/3/">Next &raquo;</a>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

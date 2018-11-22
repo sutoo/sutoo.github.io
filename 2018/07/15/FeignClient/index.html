@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>FeignClient | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="从源码分析FeignClient 1public abstract class Feign Feign这个类是为了简化对http apis的请求。 通过 newInstance 方法，产生Target，来代表对应的Http Apis。 1public abstract &amp;lt;T&amp;gt; T newInstance(Target&amp;lt;T&amp;gt; target); 产生一个 http api的实例">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FeignClient">
+<meta property="og:url" content="http://yoursite.com/2018/07/15/FeignClient/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="从源码分析FeignClient 1public abstract class Feign Feign这个类是为了简化对http apis的请求。 通过 newInstance 方法，产生Target，来代表对应的Http Apis。 1public abstract &amp;lt;T&amp;gt; T newInstance(Target&amp;lt;T&amp;gt; target); 产生一个 http api的实例">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:45:31.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="FeignClient">
+<meta name="twitter:description" content="从源码分析FeignClient 1public abstract class Feign Feign这个类是为了简化对http apis的请求。 通过 newInstance 方法，产生Target，来代表对应的Http Apis。 1public abstract &amp;lt;T&amp;gt; T newInstance(Target&amp;lt;T&amp;gt; target); 产生一个 http api的实例">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-FeignClient" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/07/15/FeignClient/" class="article-date">
+  <time datetime="2018-07-14T16:00:00.000Z" itemprop="datePublished">2018-07-15</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      FeignClient
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>从源码分析FeignClient</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">Feign</span></span></span><br></pre></td></tr></table></figure>
+<p>Feign这个类是为了简化对<strong>http apis</strong>的请求。</p>
+<p>通过 <strong>newInstance</strong> 方法，产生<strong>Target</strong>，来代表对应的Http Apis。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> &lt;T&gt; <span class="function">T <span class="title">newInstance</span><span class="params">(Target&lt;T&gt; target)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>产生一个 http api的实例。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Target</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line">  <span class="comment">/* The type of the interface this target applies to. */</span></span><br><span class="line">  <span class="function">Class&lt;T&gt; <span class="title">type</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* configuration key associated with this target. */</span></span><br><span class="line">  <span class="function">String <span class="title">name</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* base HTTP URL of the target. */</span></span><br><span class="line">  <span class="function">String <span class="title">url</span><span class="params">()</span></span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">//从 template中产生Request</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> Request <span class="title">apply</span><span class="params">(RequestTemplate input)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>apply被用来产生request，基于传入的template input，加入header和参数，产生一个不可变的Request。</p>
+<p>例如：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Request <span class="title">apply</span><span class="params">(RequestTemplate input)</span> </span>&#123;</span><br><span class="line">    input.insert(<span class="number">0</span>, url());</span><br><span class="line">    input.replaceHeader(&amp;quot;X-Auth&amp;quot;, currentToken);</span><br><span class="line">    <span class="keyword">return</span> input.asRequest();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>target的主要作用是产生Request， 作为Http请求的参数。</p>
+<p>Feign的一个默认实现：ReflectiveFeign，newInstance最终返回了一个动态代理:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Proxy.newProxyInstance(ClassLoader loader,</span><br><span class="line">                       Class&lt;?&gt;[] interfaces,</span><br><span class="line">                       InvocationHandler h)</span><br></pre></td></tr></table></figure>
+<p>最重要的是要看InvocationHandler的实现。</p>
+<p>在初始化 Feign的时候，在Feign.Builder中，选择的FeignInvocationHandler作为InvocationHandler的实现。</p>
+<p>FeignInvocationHandler中，包含多个MethodHandler, 默认实现为：SynchronousMethodHandler。</p>
+<p>在SynchronousMethodHandler中，包含着Client和Retryer，这个类中，实现了最终的Http的请求。</p>
+<p><strong>MethodHandler</strong></p>
+<p>SynchronousMethodHandler , 在这个类里面最终实现了对 http client 的调用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SynchronousMethodHandler</span> <span class="keyword">implements</span> <span class="title">MethodHandler</span> </span>&#123;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Client client;</span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Retryer retryer;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>InvocationHandler</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FeignInvocationHandler</span> <span class="keyword">implements</span> <span class="title">InvocationHandler</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">private</span> <span class="keyword">final</span> Target target;</span><br><span class="line">   <span class="keyword">private</span> <span class="keyword">final</span> Map&lt;Method, MethodHandler&gt; dispatch;</span><br></pre></td></tr></table></figure>
+<p>同时，在Feign.Builder中，</p>
+<p>Client使用的是java默认的java.net.HttpUrlConnection</p>
+<p>Retryer,的默认值为重试5次。</p>
+<h3 id="Feign-hystrix"><a href="#Feign-hystrix" class="headerlink" title="Feign-hystrix"></a>Feign-hystrix</h3><p>对Feign的扩展：</p>
+<p>1 容许Feign的接口返回HystrixCommand 或者 rx.Observable (通过HystrixDelegatingContract 来实现)</p>
+<p>2 对接口调用进行包装，加入了断路器。(通过HystrixInvocationHandler实现)</p>
+<p>在HystrixInvocationHandler中，invoke方法，对httpclient的调用，使用HystrixCommand的方式：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">HystrixCommand&lt;Object&gt; hystrixCommand = <span class="keyword">new</span> HystrixCommand&lt;Object&gt;(setterMethodMap.get(method)) &#123;</span><br><span class="line">     <span class="meta">@Override</span></span><br><span class="line">     <span class="function"><span class="keyword">protected</span> Object <span class="title">run</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">       <span class="keyword">try</span> &#123;</span><br><span class="line">         <span class="keyword">return</span> HystrixInvocationHandler.<span class="keyword">this</span>.dispatch.get(method).invoke(args);</span><br><span class="line">       &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">         <span class="keyword">throw</span> e;</span><br><span class="line">       &#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">         <span class="keyword">throw</span> (Error) t;</span><br><span class="line">       &#125;</span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="与spring的集成"><a href="#与spring的集成" class="headerlink" title="与spring的集成"></a>与spring的集成</h3><p>在spring-cloud-netflix-core中，有spring和feign集成的代码。</p>
+<p>在FeignClientFactoryBean中,重新定义了 Feign.Builder:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FeignClientFactoryBean</span> <span class="keyword">implements</span> <span class="title">FactoryBean</span>&lt;<span class="title">Object</span>&gt;, <span class="title">InitializingBean</span>,</span></span><br><span class="line"><span class="class">		<span class="title">ApplicationContextAware</span> </span>&#123;</span><br><span class="line">		</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Object <span class="title">getObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">		FeignContext context = applicationContext.getBean(FeignContext.class);</span><br><span class="line">        <span class="comment">//从FeignContext中生成Feign.Builder</span></span><br><span class="line">		Feign.Builder builder = feign(context);</span><br><span class="line">        <span class="keyword">if</span> (!StringUtils.hasText(<span class="keyword">this</span>.url)) &#123;</span><br><span class="line">			String url;<span class="comment">//处理url</span></span><br><span class="line">            <span class="comment">//loadbalance ribbon?</span></span><br><span class="line">			<span class="keyword">return</span> loadBalance(builder, context,</span><br><span class="line">                               <span class="keyword">new</span> HardCodedTarget&lt;&gt;(<span class="keyword">this</span>.type,</span><br><span class="line">					<span class="keyword">this</span>.name, url));</span><br><span class="line">		&#125;</span><br><span class="line">		</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在spring中，Feign的初始化依赖于FeignContext。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FeignContext</span> <span class="keyword">extends</span> <span class="title">NamedContextFactory</span>&lt;<span class="title">FeignClientSpecification</span>&gt; </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">FeignContext</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">super</span>(FeignClientsConfiguration.class, <span class="string">"feign"</span>, <span class="string">"feign.client.name"</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>NamedContextFactory</code>可以创建一组子上下文, 每个子上下文中可以使用一组的Specification来定义bean</p>
+<h1 id="Ribbon"><a href="#Ribbon" class="headerlink" title="Ribbon"></a>Ribbon</h1><p>一个客户端负载均衡器，运行在客户端上。</p>
+<p>###LoadBalancerClient </p>
+<p>最重要的一个类： LoadBalancerClient  负载均衡器的客户端。</p>
+<p>继承关系： ServiceInstanceChooser &lt;- LoadBalancerClient &lt;- RibbonLoadBalancerClient</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Represents a client side load balancer</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">LoadBalancerClient</span> <span class="keyword">extends</span> <span class="title">ServiceInstanceChooser</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">   <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * execute request using a ServiceInstance from the LoadBalancer for the specified</span></span><br><span class="line"><span class="comment">    * service </span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">   &lt;T&gt; <span class="function">T <span class="title">execute</span><span class="params">(String serviceId, LoadBalancerRequest&lt;T&gt; request)</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="comment">//......</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Implemented by classes which use a load balancer to choose a server to</span></span><br><span class="line"><span class="comment"> * send a request to.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ServiceInstanceChooser</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Choose a ServiceInstance from the LoadBalancer for the specified service</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">ServiceInstance <span class="title">choose</span><span class="params">(String serviceId)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"> <span class="class"><span class="keyword">class</span> <span class="title">RibbonLoadBalancerClient</span> <span class="keyword">implements</span> <span class="title">LoadBalancerClient</span> </span>&#123;</span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function">T <span class="title">execute</span><span class="params">(String serviceId, LoadBalancerRequest&lt;T&gt; request)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="comment">//最终选择service的任务还是交与ILoadBalancer来做。</span></span><br><span class="line">   ILoadBalancer loadBalancer = getLoadBalancer(serviceId);</span><br><span class="line">   Server server = getServer(loadBalancer);</span><br><span class="line">   <span class="keyword">if</span> (server == <span class="keyword">null</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"No instances available for "</span> + serviceId);</span><br><span class="line">   &#125;</span><br><span class="line">   RibbonServer ribbonServer = <span class="keyword">new</span> RibbonServer(serviceId, server, isSecure(server,</span><br><span class="line">         serviceId), serverIntrospector(serviceId).getMetadata(server));</span><br><span class="line"></span><br><span class="line">   <span class="keyword">return</span> execute(serviceId, ribbonServer, request);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>###ILoadBalancer</p>
+<p>最终选择service的任务还是交与ILoadBalancer来做。</p>
+<p>ILoadBalancer &lt;- BaseLoadBalancer &lt;- DynamicServerListLoadBalancer</p>
+<p>在DynamicServerListLoadBalancer中，是如何获取和刷新服务列表的？</p>
+<p>首先在构造函数中-&gt;initWithNiwsConfig() -&gt; restOfInit() -&gt; updateListOfServers()</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DynamicServerListLoadBalance</span></span>&#123;</span><br><span class="line"><span class="meta">@VisibleForTesting</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">updateListOfServers</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    List&lt;T&gt; servers = <span class="keyword">new</span> ArrayList&lt;T&gt;();</span><br><span class="line">    <span class="keyword">if</span> (serverListImpl != <span class="keyword">null</span>) &#123;</span><br><span class="line">        servers = serverListImpl.getUpdatedListOfServers();</span><br><span class="line">        LOGGER.debug(<span class="string">"List of Servers for &#123;&#125; obtained from Discovery client: &#123;&#125;"</span>,</span><br><span class="line">                getIdentifier(), servers);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (filter != <span class="keyword">null</span>) &#123;</span><br><span class="line">            servers = filter.getFilteredListOfServers(servers);</span><br><span class="line">            LOGGER.debug(<span class="string">"Filtered List of Servers for &#123;&#125; obtained from Discovery client: &#123;&#125;"</span>,</span><br><span class="line">                    getIdentifier(), servers);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    updateAllServerList(servers);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ServerList 的具体实现类： serverListImpl 来负责最终的刷新。ServerList 有各种实现，比方说用Consul的话，实现就是ConsulServerList。</p>
+<p>参考：<a href="https://blog.csdn.net/forezp/article/details/74820899" target="_blank" rel="noopener">https://blog.csdn.net/forezp/article/details/74820899</a></p>
+<h3 id="FeignLoadBalancer"><a href="#FeignLoadBalancer" class="headerlink" title="FeignLoadBalancer"></a>FeignLoadBalancer</h3><p>CachingSpringLoadBalancerFactory 会返回一个 FeignLoadBalancer</p>
+<h3 id="Robbin会retry："><a href="#Robbin会retry：" class="headerlink" title="Robbin会retry："></a>Robbin会retry：</h3><p>在CachingSpringLoadBalancerFactory中，创建FeignLoadBalancer的时候</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> FeignLoadBalancer <span class="title">create</span><span class="params">(String clientName)</span> </span>&#123;</span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">this</span>.cache.containsKey(clientName)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">this</span>.cache.get(clientName);</span><br><span class="line">   &#125;</span><br><span class="line">   IClientConfig config = <span class="keyword">this</span>.factory.getClientConfig(clientName);</span><br><span class="line">   ILoadBalancer lb = <span class="keyword">this</span>.factory.getLoadBalancer(clientName);</span><br><span class="line">   ServerIntrospector serverIntrospector = <span class="keyword">this</span>.factory.getInstance(clientName, ServerIntrospector.class);</span><br><span class="line">    <span class="comment">//通过enableRetry来控制是否重试</span></span><br><span class="line">   FeignLoadBalancer client = enableRetry ? <span class="keyword">new</span> RetryableFeignLoadBalancer(lb, config, serverIntrospector,</span><br><span class="line">         loadBalancedRetryPolicyFactory) : <span class="keyword">new</span> FeignLoadBalancer(lb, config, serverIntrospector);</span><br><span class="line">   <span class="keyword">this</span>.cache.put(clientName, client);</span><br><span class="line">   <span class="keyword">return</span> client;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Feign-and-Ribbon"><a href="#Feign-and-Ribbon" class="headerlink" title="Feign and Ribbon"></a>Feign and Ribbon</h3><p>当结合使用Feign和Ribbon的时候， SynchronousMethodHandler 中的client 类型为：LoadBalancerFeignClient。 在execute的时候，会创建一个<strong>FeignLoadBalancer</strong> 来执行executeWithLoadBalancer()，这个函数的作用是把请求交给选中的服务来处理，而不是指定一个服务。FeignLoadBalancer包含一个ILoadBalancer</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">LoadBalancerFeignClient</span> <span class="keyword">implements</span> <span class="title">Client</span></span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> Response <span class="title">execute</span><span class="params">(Request request, Request.Options options)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			URI asUri = URI.create(request.url());</span><br><span class="line">			String clientName = asUri.getHost();</span><br><span class="line">			URI uriWithoutHost = cleanUrl(request.url(), clientName);</span><br><span class="line">			FeignLoadBalancer.RibbonRequest ribbonRequest = <span class="keyword">new</span> FeignLoadBalancer.RibbonRequest(</span><br><span class="line">					<span class="keyword">this</span>.delegate, request, uriWithoutHost);</span><br><span class="line"></span><br><span class="line">			IClientConfig requestConfig = getClientConfig(options, clientName);</span><br><span class="line">			<span class="keyword">return</span> lbClient(clientName).executeWithLoadBalancer(ribbonRequest,</span><br><span class="line">					requestConfig).toResponse();</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">catch</span> (ClientException e) &#123;</span><br><span class="line">			IOException io = findIOException(e);</span><br><span class="line">			<span class="keyword">if</span> (io != <span class="keyword">null</span>) &#123;</span><br><span class="line">				<span class="keyword">throw</span> io;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(e);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">executeWithLoadBalancer</span><span class="params">(<span class="keyword">final</span> S request, <span class="keyword">final</span> IClientConfig requestConfig)</span> <span class="keyword">throws</span> ClientException </span>&#123;</span><br><span class="line">    RequestSpecificRetryHandler handler = getRequestSpecificRetryHandler(request, requestConfig);</span><br><span class="line">    LoadBalancerCommand&lt;T&gt; command = LoadBalancerCommand.&lt;T&gt;builder()</span><br><span class="line">            .withLoadBalancerContext(<span class="keyword">this</span>)</span><br><span class="line">            .withRetryHandler(handler)</span><br><span class="line">            .withLoadBalancerURI(request.getUri())</span><br><span class="line">            .build();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">//在这个里面选择一个服务进行调用。</span></span><br><span class="line">        <span class="keyword">return</span> command.submit(</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/07/15/FeignClient/" data-id="cjos8tzhp000nrkwkhowyom0o" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/07/25/mysql_explain/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Mysql explain
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/07/02/HTTP-2/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">HTTP 2</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>JVM GC CMS | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="#CMS 全称 Concurrent Mark Sweep 本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。 阶段：  初始标记 Initial Mark（STW） 标记GC ROOT和年轻代对象能直接关联到的对象。   并发标记 由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记  并发预清理 Con">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM GC CMS">
+<meta property="og:url" content="http://yoursite.com/2018/11/22/JVM_gc_cms/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="#CMS 全称 Concurrent Mark Sweep 本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。 阶段：  初始标记 Initial Mark（STW） 标记GC ROOT和年轻代对象能直接关联到的对象。   并发标记 由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记  并发预清理 Con">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://yoursite.com/images/g1-06.png">
+<meta property="og:image" content="http://yoursite.com/2018/11/22/JVM_gc_cms/g1-08.png">
+<meta property="og:updated_time" content="2018-11-22T06:24:29.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="JVM GC CMS">
+<meta name="twitter:description" content="#CMS 全称 Concurrent Mark Sweep 本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。 阶段：  初始标记 Initial Mark（STW） 标记GC ROOT和年轻代对象能直接关联到的对象。   并发标记 由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记  并发预清理 Con">
+<meta name="twitter:image" content="http://yoursite.com/images/g1-06.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-JVM_gc_cms" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/JVM_gc_cms/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      JVM GC CMS
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>#CMS</p>
+<p>全称 <code>Concurrent Mark Sweep</code></p>
+<p>本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。</p>
+<p>阶段：</p>
+<ul>
+<li><p>初始标记 <strong>Initial Mark</strong>（STW）</p>
+<p>标记GC ROOT和年轻代对象能<strong>直接关联</strong>到的对象。</p>
+<p><img src="/images/g1-06.png" alt="CMS initial mark"></p>
+</li>
+<li><p>并发标记</p>
+<p>由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记</p>
+</li>
+<li><p>并发预清理 <strong>Concurrent Preclean</strong></p>
+<p>JVM将包含变异对象的堆区域（称为“Card”）标记为“脏”</p>
+<p><img src="g1-08.png" alt="g1-08"></p>
+</li>
+<li><p><strong>Concurrent Abortable Preclean</strong></p>
+<p>？？</p>
+</li>
+<li><p><strong>Final Remark </strong>（STW）</p>
+<p>最终标记所有的老年代的存活对象。</p>
+</li>
+<li><p><strong>Concurrent Sweep</strong></p>
+<p>删除未标记的对象并回收它们占用的空间。</p>
+</li>
+</ul>
+<p>###安全点（safepoint）</p>
+<p>程序只有在运行到安全点的时候，才可以暂停下来。<code>HotSpot</code>采用主动中断的方式，让执行线程在运行期轮询是否需要暂停的标志，若需要则中断挂起。</p>
+<h3 id="可达性"><a href="#可达性" class="headerlink" title="可达性"></a>可达性</h3><p>1.本身是根对象。根（root）是指由堆以外空间访问的对象。JVM会将以下对象标记为根：</p>
+<p>a.虚拟机栈（栈帧中的本地变量表）中引用的对象；</p>
+<p>b.方法区中的类静态属性引用的对象；</p>
+<p>c.方法区中的常量引用的对象；</p>
+<p>d.本地方法栈中JNI的引用对象。</p>
+<p>2.被一个可达的对象引用。</p>
+<p>参考：<a href="https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep" target="_blank" rel="noopener">https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/JVM_gc_cms/" data-id="cjos8tzgr0008rkwkfwb9a47y" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/11/22/consul-simple/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Consul简介
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/11/09/Histograms/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Histograms</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

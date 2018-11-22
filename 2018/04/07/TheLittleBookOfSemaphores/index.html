@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>The Little Book of Semaphores | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="###Semaphores现实世界的semaphores是一个用来沟通的信号系统。计算机世界的semaphores是一个数据结构，被用来解决synchronization问题。Semaphores的发明者是Edsger Dijkstra。 ###定义Semaphores是一个Integer，再加上下面的约束：  创建的时候，可以指定任意的数字。只能对它执行increment和decrement操作">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Little Book of Semaphores">
+<meta property="og:url" content="http://yoursite.com/2018/04/07/TheLittleBookOfSemaphores/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="###Semaphores现实世界的semaphores是一个用来沟通的信号系统。计算机世界的semaphores是一个数据结构，被用来解决synchronization问题。Semaphores的发明者是Edsger Dijkstra。 ###定义Semaphores是一个Integer，再加上下面的约束：  创建的时候，可以指定任意的数字。只能对它执行increment和decrement操作">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:37:10.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="The Little Book of Semaphores">
+<meta name="twitter:description" content="###Semaphores现实世界的semaphores是一个用来沟通的信号系统。计算机世界的semaphores是一个数据结构，被用来解决synchronization问题。Semaphores的发明者是Edsger Dijkstra。 ###定义Semaphores是一个Integer，再加上下面的约束：  创建的时候，可以指定任意的数字。只能对它执行increment和decrement操作">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-TheLittleBookOfSemaphores" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/07/TheLittleBookOfSemaphores/" class="article-date">
+  <time datetime="2018-04-06T16:00:00.000Z" itemprop="datePublished">2018-04-07</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      The Little Book of Semaphores
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>###<strong>Semaphores</strong><br>现实世界的semaphores是一个用来沟通的信号系统。计算机世界的semaphores是一个数据结构，被用来解决synchronization问题。Semaphores的发明者是<strong>Edsger Dijkstra</strong>。</p>
+<p>###定义<br>Semaphores是一个Integer，再加上下面的约束：</p>
+<ul>
+<li>创建的时候，可以指定任意的数字。只能对它执行increment和decrement操作，不能直接访问semaphore的int value。</li>
+<li>当一个thread decrement一个semaphore：如果结果为负，则thread阻塞。但是，在执行decrement之前，无法知道当前thread是否会被阻塞。</li>
+<li>当一个thread increment 一个semaphore：选择一个阻塞的thread使其被唤起。然后，两个thread都继续执行。</li>
+</ul>
+<p>###语法<br>increment ：signal 或者 V<br>decrement：wait 或者P</p>
+<p>如果说要一个完整的函数名，可能是下面的形式：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">fred.increment_and_wake_a_waiting_process_if_any()</span><br><span class="line">fred.decrement_and_block_if_the_result_is_negative()</span><br></pre></td></tr></table></figure></p>
+<p>increment 和decrement 描述了方法做了什么；</p>
+<p>signal 和 wait 描述了方法被用来做什么；</p>
+<p>V 和 P 是Dijkstra提出的原语。</p>
+<h2 id="基本的同步模式-（Basic-synchronization-patterns）"><a href="#基本的同步模式-（Basic-synchronization-patterns）" class="headerlink" title="基本的同步模式 （Basic synchronization patterns）"></a>基本的同步模式 （Basic synchronization patterns）</h2><h3 id="Signaling"><a href="#Signaling" class="headerlink" title="Signaling"></a>Signaling</h3><p>可以用来保证一个线程中的一段代码会早于另外一个线程中的一段代码运行。</p>
+<p>Thread A</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">statement a1</span><br><span class="line">sem.signal()</span><br></pre></td></tr></table></figure>
+<p>Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sem.wait()</span><br><span class="line">statement b1</span><br></pre></td></tr></table></figure>
+<p> a1 &gt; b1</p>
+<h3 id="Rendezvous"><a href="#Rendezvous" class="headerlink" title="Rendezvous"></a>Rendezvous</h3><p>要求： a1 &gt; b2  and  b1 &gt; a2</p>
+<p>Thread A</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">statement a1</span><br><span class="line">aArrived.signal() </span><br><span class="line">bArrived.wait()</span><br><span class="line">statement a2   // critical point</span><br></pre></td></tr></table></figure>
+<p>Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">statement b1</span><br><span class="line">bArrived.signal()</span><br><span class="line">aArrived.wait()</span><br><span class="line">statement b2   // critical point</span><br></pre></td></tr></table></figure>
+<h3 id="mutex"><a href="#mutex" class="headerlink" title="mutex"></a>mutex</h3><p>mutex很像一个在线程间传递的token，获得到token的线程可以处理。</p>
+<blockquote>
+<p>Mutex 是mutual exclusion的缩写。用mutex去保护critical regions</p>
+</blockquote>
+<p>Thread A 和 Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mutex.wait()</span><br><span class="line">#critical section</span><br><span class="line">count = count + 1 //for example</span><br><span class="line">mutex.signal()</span><br></pre></td></tr></table></figure>
+<h3 id="Multiplex"><a href="#Multiplex" class="headerlink" title="Multiplex"></a>Multiplex</h3><p>和mutex和像，只是容许多个线程同时进入critical regions。为了实现这样的效果，直接将semaphores 初始化为n（n个线程同时进入critical regions）。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">multiplex.wait()</span><br><span class="line">//critical section</span><br><span class="line">multiplex.signal()</span><br></pre></td></tr></table></figure>
+<h3 id="Barrier"><a href="#Barrier" class="headerlink" title="Barrier"></a>Barrier</h3><p>Rendezvous只容许两个线程。但是如果容许多个线程，就是Barrier，要求所有线程都不能执行<strong>critical point</strong>，除非所有的线程都已经执行了rendezvous。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">n = the number of threads</span><br><span class="line">count = 0 //有多少线程已经到来了 </span><br><span class="line">mutex = Semaphore(1) //对count的修改，进行并发控制</span><br><span class="line">barrier = Semaphore(0) //一直阻塞，直到所有的线程到达。</span><br><span class="line"></span><br><span class="line">rendezvous</span><br><span class="line">mutex.wait()</span><br><span class="line">count = count + 1 </span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">if count == n: barrier.signal()</span><br><span class="line"></span><br><span class="line">barrier.wait()   // 这样的wait和signal紧接着的情况，很常见，被叫做turnstile(旋转门)</span><br><span class="line">barrier.signal() // 因为它既可以控制线程们一个个的通过，也可以被锁住，不让所有的线程通过。</span><br><span class="line"></span><br><span class="line">cirtical point</span><br></pre></td></tr></table></figure>
+<h3 id="Reusable-barrier"><a href="#Reusable-barrier" class="headerlink" title="Reusable barrier"></a>Reusable barrier</h3><p>当所有的线程通过后，再次不容许任何线程通过，就可以再次使用。也被叫做<strong>two-phase barrier</strong></p>
+<h3 id="Preloaded-turnstile"><a href="#Preloaded-turnstile" class="headerlink" title="Preloaded turnstile"></a>Preloaded turnstile</h3><p><strong>turnstile</strong>是一个常用的组件，它有个不好的地方就是强制线程一个个的通过。可能造成大量的线程切换。</p>
+<p>基于reusable barrier ，如果最后一个打开旋转门的线程，可以预加载足够多的signal，就可以让相同数量的线程通过旋转门。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"># rendezvous</span><br><span class="line">mutex.wait()</span><br><span class="line">  count += 1</span><br><span class="line">  if count == n:</span><br><span class="line">    turnstile.signal(n)   // unlock the first</span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">turnstile.wait()     // first turnstile</span><br><span class="line"># critical point  </span><br><span class="line"></span><br><span class="line">mutex.wait()</span><br><span class="line">  count -= 1</span><br><span class="line">  if count == 0:</span><br><span class="line">    turnstile2.signal(n)  // unlock the second</span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">turnstile2.wait()     // second turnstile</span><br></pre></td></tr></table></figure>
+<h3 id="Queue"><a href="#Queue" class="headerlink" title="Queue"></a>Queue</h3><p>//TODO</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/07/TheLittleBookOfSemaphores/" data-id="cjos8tzgy000grkwkicrlpu8w" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/04/11/DB_mysql_innoDB/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Mysql InnoDB
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/04/01/Netty/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Netty</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

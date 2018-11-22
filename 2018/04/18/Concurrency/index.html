@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>Concurrency | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="如何实现高并发I/O 策略的选择首先，有哪些I/O model 可以选择？ UNIX Netwrok Programming中，列出了以下5种I/O模型：  blocking I/O nonblocking I/O I/O multiplexing (select and poll) singnal driven I/O (SIGIO) asynchronous I/O (the POSIX ai">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Concurrency">
+<meta property="og:url" content="http://yoursite.com/2018/04/18/Concurrency/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="如何实现高并发I/O 策略的选择首先，有哪些I/O model 可以选择？ UNIX Netwrok Programming中，列出了以下5种I/O模型：  blocking I/O nonblocking I/O I/O multiplexing (select and poll) singnal driven I/O (SIGIO) asynchronous I/O (the POSIX ai">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:35:14.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Concurrency">
+<meta name="twitter:description" content="如何实现高并发I/O 策略的选择首先，有哪些I/O model 可以选择？ UNIX Netwrok Programming中，列出了以下5种I/O模型：  blocking I/O nonblocking I/O I/O multiplexing (select and poll) singnal driven I/O (SIGIO) asynchronous I/O (the POSIX ai">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-Concurrency" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/18/Concurrency/" class="article-date">
+  <time datetime="2018-04-17T16:00:00.000Z" itemprop="datePublished">2018-04-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Concurrency
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="如何实现高并发"><a href="#如何实现高并发" class="headerlink" title="如何实现高并发"></a>如何实现高并发</h1><h2 id="I-O-策略的选择"><a href="#I-O-策略的选择" class="headerlink" title="I/O 策略的选择"></a>I/O 策略的选择</h2><p>首先，有哪些I/O model 可以选择？</p>
+<p><em>UNIX Netwrok Programming</em>中，列出了以下5种I/O模型：</p>
+<blockquote>
+<p>blocking I/O</p>
+<p>nonblocking I/O</p>
+<p>I/O multiplexing (select and poll)</p>
+<p>singnal driven I/O (SIGIO)</p>
+<p>asynchronous I/O (the POSIX aio_functions)</p>
+</blockquote>
+<p>我们先不仔细研究，先看下 <a href="http://www.kegel.com/c10k.html#nb" target="_blank" rel="noopener">The C10K problem</a>中，列出了哪些 I/O Strategies。</p>
+<blockquote>
+<p>1 一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知</p>
+<p>2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知</p>
+<p>3 一个服务线程服务多个客户端，使用异步I/O</p>
+<p>4 一个服务线程服务多个客户端，使用阻塞I/O</p>
+<p>5 把服务代码编译进内核</p>
+</blockquote>
+<p>1，2 都是使用单个线程来关注一些列nonblocking sockets，看它们何时ready for I/O。但是1，2所说的非阻塞I/O不是上面列出的5种I/O模型中的第二个，它指的应该是第一种的对立面，主要包含了第三种，既I/O multiplexing模式。</p>
+<h3 id="1-一个线程服务多个客户端，使用非阻塞I-O和水平触发的就绪通知"><a href="#1-一个线程服务多个客户端，使用非阻塞I-O和水平触发的就绪通知" class="headerlink" title="1  一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知"></a>1  一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知</h3><p>实现方式：</p>
+<ul>
+<li>传统的select：受限于句柄个数 </li>
+<li>传统的poll：性能低，因为扫码大量的描述符很耗费时间</li>
+<li>kqueue（level-trigger）：for FreeBSD</li>
+</ul>
+<h3 id="2-一个线程服务多个客户端，使用非阻塞I-O和边缘触发的就绪通知"><a href="#2-一个线程服务多个客户端，使用非阻塞I-O和边缘触发的就绪通知" class="headerlink" title="2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知"></a>2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知</h3><p>实现方式：</p>
+<ul>
+<li>kqueue（edge-trigger）：</li>
+<li>epoll：Linux2.6中推荐使用的edge-triggered <strong>poll</strong> 。</li>
+<li>Realtime Signal：Linux2.4中推荐使用的edge-triggered <strong>poll</strong>。</li>
+</ul>
+<p>####关于<strong>水平触发</strong>和<strong><em>边缘触发</em></strong>：</p>
+<p>水平触发（level-triggered）——只要满足条件，就触发一个事件(只要有数据没有被获取，内核就不断通知你)；边缘触发（edge-triggered）——每当状态变化时，触发一个事件。</p>
+<h4 id="select-poll-Epoll区别："><a href="#select-poll-Epoll区别：" class="headerlink" title="select,poll,Epoll区别："></a>select,poll,Epoll区别：</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>select</th>
+<th>poll</th>
+<th>Poll</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>支持最大连接数</td>
+<td>1024(x86) 2048(x64)</td>
+<td>无限制</td>
+<td>无限制</td>
+</tr>
+<tr>
+<td>I/O效率</td>
+<td>每次调用遍历所有</td>
+<td>每次调用遍历所有</td>
+<td>使用“事件”通知方式，每当fd就绪，系统注册的回调函数就会被调用，将就绪fd放到rdllist里面，这样epoll_wait返回的时候我们就拿到了就绪的fd。时间发复杂度O（1）</td>
+</tr>
+<tr>
+<td>fd拷贝</td>
+<td>每次调用需要拷贝</td>
+<td>每次调用拷贝</td>
+<td>调用epoll_ctl时拷贝进内核并由内核保存，之后每次epoll_wait不拷贝</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3一个服务线程服务多个客户端，使用异步I-O"><a href="#3一个服务线程服务多个客户端，使用异步I-O" class="headerlink" title="3一个服务线程服务多个客户端，使用异步I/O"></a>3一个服务线程服务多个客户端，使用异步I/O</h3><p>该方法目前还没有在Unix上普遍的使用，可能因为很少的操作系统支持异步I/O。在标准Unix下，异步I/O是由<a href="http://www.opengroup.org/onlinepubs/007908799/xsh/realtime.html" target="_blank" rel="noopener">“aio_”接口</a> 提供的，既上面5种模型中的最后一种：asynchronous I/O 。它把一个信号和值与每一个I/O操作关联起来。信号和其值的队列被有效地分配到用户的 进程上。</p>
+<h4 id="关于异步I-O和同步I-O"><a href="#关于异步I-O和同步I-O" class="headerlink" title="关于异步I/O和同步I/O"></a>关于异步I/O和同步I/O</h4><p><em>UNIX Netwrok Programming</em>中有这样的描述：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">POSIX defines these two terms as follows:</span><br><span class="line">  A synchronous I/O operation causes the requesting process to be blocked until that I/O operation completes.</span><br><span class="line">  An asynchronous I/O operation does not cause the requesting process to be blocked.</span><br></pre></td></tr></table></figure>
+<p>所以，上面的5中模型中，1~4是同步I/O，5才是异步I/O。</p>
+<h4 id="关于阻塞I-O和非阻塞I-O"><a href="#关于阻塞I-O和非阻塞I-O" class="headerlink" title="关于阻塞I/O和非阻塞I/O"></a>关于阻塞I/O和非阻塞I/O</h4><p>阻塞I/O ：BIO ， 非阻塞I/O：NIO ，</p>
+<p>一个IO操作其实分成了两个步骤：发起IO请求和实际的IO操作，阻塞IO和非阻塞IO的区别在于第一步：发起IO请求是否会被阻塞，如果阻塞直到完成那么就是传统的阻塞IO;如果不阻塞，那么就是非阻塞IO</p>
+<h3 id="4一个服务线程服务多个客户端，使用阻塞I-O"><a href="#4一个服务线程服务多个客户端，使用阻塞I-O" class="headerlink" title="4一个服务线程服务多个客户端，使用阻塞I/O"></a>4一个服务线程服务多个客户端，使用阻塞I/O</h3><p>一个线程一个socket？</p>
+<h3 id="5-把服务代码编译进内核"><a href="#5-把服务代码编译进内核" class="headerlink" title="5 把服务代码编译进内核"></a>5 把服务代码编译进内核</h3><!--todo-->
+<h2 id="并发模型"><a href="#并发模型" class="headerlink" title="并发模型"></a>并发模型</h2><p>实现并发的途径有两种，基于线程和基于事件。</p>
+<h4 id="并发和并行"><a href="#并发和并行" class="headerlink" title="并发和并行"></a>并发和并行</h4><p>并发concurrency属于问题域(problem domain), 并行parallelism属于( solution domain)。并行和并发的区别在于有无状态，并行计算适合无状态应用，而并发解决的是有状态的高性能； 有状态要着力解决并发计算，无状态要着力并行计算。</p>
+<h2 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h2>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/18/Concurrency/" data-id="cjos8tzge0001rkwkgiwxzjzf" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/04/20/Java_NIO/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Java I/O模型
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/04/11/DB_mysql_innoDB/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Mysql InnoDB</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

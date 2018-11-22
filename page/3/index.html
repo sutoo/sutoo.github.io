@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta property="og:type" content="website">
+<meta property="og:title" content="Imoko">
+<meta property="og:url" content="http://yoursite.com/page/3/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:locale" content="default">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Imoko">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main">
+  
+    <article id="post-Concurrency" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/18/Concurrency/" class="article-date">
+  <time datetime="2018-04-17T16:00:00.000Z" itemprop="datePublished">2018-04-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/18/Concurrency/">Concurrency</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="如何实现高并发"><a href="#如何实现高并发" class="headerlink" title="如何实现高并发"></a>如何实现高并发</h1><h2 id="I-O-策略的选择"><a href="#I-O-策略的选择" class="headerlink" title="I/O 策略的选择"></a>I/O 策略的选择</h2><p>首先，有哪些I/O model 可以选择？</p>
+<p><em>UNIX Netwrok Programming</em>中，列出了以下5种I/O模型：</p>
+<blockquote>
+<p>blocking I/O</p>
+<p>nonblocking I/O</p>
+<p>I/O multiplexing (select and poll)</p>
+<p>singnal driven I/O (SIGIO)</p>
+<p>asynchronous I/O (the POSIX aio_functions)</p>
+</blockquote>
+<p>我们先不仔细研究，先看下 <a href="http://www.kegel.com/c10k.html#nb" target="_blank" rel="noopener">The C10K problem</a>中，列出了哪些 I/O Strategies。</p>
+<blockquote>
+<p>1 一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知</p>
+<p>2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知</p>
+<p>3 一个服务线程服务多个客户端，使用异步I/O</p>
+<p>4 一个服务线程服务多个客户端，使用阻塞I/O</p>
+<p>5 把服务代码编译进内核</p>
+</blockquote>
+<p>1，2 都是使用单个线程来关注一些列nonblocking sockets，看它们何时ready for I/O。但是1，2所说的非阻塞I/O不是上面列出的5种I/O模型中的第二个，它指的应该是第一种的对立面，主要包含了第三种，既I/O multiplexing模式。</p>
+<h3 id="1-一个线程服务多个客户端，使用非阻塞I-O和水平触发的就绪通知"><a href="#1-一个线程服务多个客户端，使用非阻塞I-O和水平触发的就绪通知" class="headerlink" title="1  一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知"></a>1  一个线程服务多个客户端，使用非阻塞I/O和水平触发的就绪通知</h3><p>实现方式：</p>
+<ul>
+<li>传统的select：受限于句柄个数 </li>
+<li>传统的poll：性能低，因为扫码大量的描述符很耗费时间</li>
+<li>kqueue（level-trigger）：for FreeBSD</li>
+</ul>
+<h3 id="2-一个线程服务多个客户端，使用非阻塞I-O和边缘触发的就绪通知"><a href="#2-一个线程服务多个客户端，使用非阻塞I-O和边缘触发的就绪通知" class="headerlink" title="2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知"></a>2 一个线程服务多个客户端，使用非阻塞I/O和边缘触发的就绪通知</h3><p>实现方式：</p>
+<ul>
+<li>kqueue（edge-trigger）：</li>
+<li>epoll：Linux2.6中推荐使用的edge-triggered <strong>poll</strong> 。</li>
+<li>Realtime Signal：Linux2.4中推荐使用的edge-triggered <strong>poll</strong>。</li>
+</ul>
+<p>####关于<strong>水平触发</strong>和<strong><em>边缘触发</em></strong>：</p>
+<p>水平触发（level-triggered）——只要满足条件，就触发一个事件(只要有数据没有被获取，内核就不断通知你)；边缘触发（edge-triggered）——每当状态变化时，触发一个事件。</p>
+<h4 id="select-poll-Epoll区别："><a href="#select-poll-Epoll区别：" class="headerlink" title="select,poll,Epoll区别："></a>select,poll,Epoll区别：</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>select</th>
+<th>poll</th>
+<th>Poll</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>支持最大连接数</td>
+<td>1024(x86) 2048(x64)</td>
+<td>无限制</td>
+<td>无限制</td>
+</tr>
+<tr>
+<td>I/O效率</td>
+<td>每次调用遍历所有</td>
+<td>每次调用遍历所有</td>
+<td>使用“事件”通知方式，每当fd就绪，系统注册的回调函数就会被调用，将就绪fd放到rdllist里面，这样epoll_wait返回的时候我们就拿到了就绪的fd。时间发复杂度O（1）</td>
+</tr>
+<tr>
+<td>fd拷贝</td>
+<td>每次调用需要拷贝</td>
+<td>每次调用拷贝</td>
+<td>调用epoll_ctl时拷贝进内核并由内核保存，之后每次epoll_wait不拷贝</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3一个服务线程服务多个客户端，使用异步I-O"><a href="#3一个服务线程服务多个客户端，使用异步I-O" class="headerlink" title="3一个服务线程服务多个客户端，使用异步I/O"></a>3一个服务线程服务多个客户端，使用异步I/O</h3><p>该方法目前还没有在Unix上普遍的使用，可能因为很少的操作系统支持异步I/O。在标准Unix下，异步I/O是由<a href="http://www.opengroup.org/onlinepubs/007908799/xsh/realtime.html" target="_blank" rel="noopener">“aio_”接口</a> 提供的，既上面5种模型中的最后一种：asynchronous I/O 。它把一个信号和值与每一个I/O操作关联起来。信号和其值的队列被有效地分配到用户的 进程上。</p>
+<h4 id="关于异步I-O和同步I-O"><a href="#关于异步I-O和同步I-O" class="headerlink" title="关于异步I/O和同步I/O"></a>关于异步I/O和同步I/O</h4><p><em>UNIX Netwrok Programming</em>中有这样的描述：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">POSIX defines these two terms as follows:</span><br><span class="line">  A synchronous I/O operation causes the requesting process to be blocked until that I/O operation completes.</span><br><span class="line">  An asynchronous I/O operation does not cause the requesting process to be blocked.</span><br></pre></td></tr></table></figure>
+<p>所以，上面的5中模型中，1~4是同步I/O，5才是异步I/O。</p>
+<h4 id="关于阻塞I-O和非阻塞I-O"><a href="#关于阻塞I-O和非阻塞I-O" class="headerlink" title="关于阻塞I/O和非阻塞I/O"></a>关于阻塞I/O和非阻塞I/O</h4><p>阻塞I/O ：BIO ， 非阻塞I/O：NIO ，</p>
+<p>一个IO操作其实分成了两个步骤：发起IO请求和实际的IO操作，阻塞IO和非阻塞IO的区别在于第一步：发起IO请求是否会被阻塞，如果阻塞直到完成那么就是传统的阻塞IO;如果不阻塞，那么就是非阻塞IO</p>
+<h3 id="4一个服务线程服务多个客户端，使用阻塞I-O"><a href="#4一个服务线程服务多个客户端，使用阻塞I-O" class="headerlink" title="4一个服务线程服务多个客户端，使用阻塞I/O"></a>4一个服务线程服务多个客户端，使用阻塞I/O</h3><p>一个线程一个socket？</p>
+<h3 id="5-把服务代码编译进内核"><a href="#5-把服务代码编译进内核" class="headerlink" title="5 把服务代码编译进内核"></a>5 把服务代码编译进内核</h3><!--todo-->
+<h2 id="并发模型"><a href="#并发模型" class="headerlink" title="并发模型"></a>并发模型</h2><p>实现并发的途径有两种，基于线程和基于事件。</p>
+<h4 id="并发和并行"><a href="#并发和并行" class="headerlink" title="并发和并行"></a>并发和并行</h4><p>并发concurrency属于问题域(problem domain), 并行parallelism属于( solution domain)。并行和并发的区别在于有无状态，并行计算适合无状态应用，而并发解决的是有状态的高性能； 有状态要着力解决并发计算，无状态要着力并行计算。</p>
+<h2 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h2>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/18/Concurrency/" data-id="cjos8tzge0001rkwkgiwxzjzf" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-DB_mysql_innoDB" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/11/DB_mysql_innoDB/" class="article-date">
+  <time datetime="2018-04-10T16:00:00.000Z" itemprop="datePublished">2018-04-11</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/11/DB_mysql_innoDB/">Mysql InnoDB</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="InnoDB中数据是如何存储的"><a href="#InnoDB中数据是如何存储的" class="headerlink" title="InnoDB中数据是如何存储的"></a>InnoDB中数据是如何存储的</h3><p><strong>system tablespace</strong> : 一个数据文件，用来存储一个或多个InnorDB <strong>表</strong> 以及相关的 <strong>索引</strong>。</p>
+<p><img src="image-20180412010618020.png" alt="image-20180412010618020"></p>
+<h3 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h3><p>InnoDB数据目录</p>
+<h3 id="重做日志"><a href="#重做日志" class="headerlink" title="重做日志"></a>重做日志</h3><p>在InnoDB的数据目录下，会有2个文件：ib_logfile0，ib_logfile1，他们就是重做日志（redo log）。日志的大小会影响数据库的性能。写入的时候，是先写入redo log buffer，然后按照一定的条件写入日志文件。从缓存写入磁盘的时候，是以512字节（一个扇区）为单位写入的。因为扇区是写入的最小单元，所以写入必定成功。从缓存写入磁盘，有几种选择：</p>
+<ul>
+<li>0 事物提交，不将重做日志写入磁盘，等待主线程每秒的刷新</li>
+<li>1 事物提交，写入磁盘，并调用fsync</li>
+<li>2 事物提交，写入磁盘，不fsync，其实是写入的文件系统的缓存。</li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/11/DB_mysql_innoDB/" data-id="cjos8tzgi0003rkwkv8970rp2" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-TheLittleBookOfSemaphores" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/07/TheLittleBookOfSemaphores/" class="article-date">
+  <time datetime="2018-04-06T16:00:00.000Z" itemprop="datePublished">2018-04-07</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/07/TheLittleBookOfSemaphores/">The Little Book of Semaphores</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>###<strong>Semaphores</strong><br>现实世界的semaphores是一个用来沟通的信号系统。计算机世界的semaphores是一个数据结构，被用来解决synchronization问题。Semaphores的发明者是<strong>Edsger Dijkstra</strong>。</p>
+<p>###定义<br>Semaphores是一个Integer，再加上下面的约束：</p>
+<ul>
+<li>创建的时候，可以指定任意的数字。只能对它执行increment和decrement操作，不能直接访问semaphore的int value。</li>
+<li>当一个thread decrement一个semaphore：如果结果为负，则thread阻塞。但是，在执行decrement之前，无法知道当前thread是否会被阻塞。</li>
+<li>当一个thread increment 一个semaphore：选择一个阻塞的thread使其被唤起。然后，两个thread都继续执行。</li>
+</ul>
+<p>###语法<br>increment ：signal 或者 V<br>decrement：wait 或者P</p>
+<p>如果说要一个完整的函数名，可能是下面的形式：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">fred.increment_and_wake_a_waiting_process_if_any()</span><br><span class="line">fred.decrement_and_block_if_the_result_is_negative()</span><br></pre></td></tr></table></figure></p>
+<p>increment 和decrement 描述了方法做了什么；</p>
+<p>signal 和 wait 描述了方法被用来做什么；</p>
+<p>V 和 P 是Dijkstra提出的原语。</p>
+<h2 id="基本的同步模式-（Basic-synchronization-patterns）"><a href="#基本的同步模式-（Basic-synchronization-patterns）" class="headerlink" title="基本的同步模式 （Basic synchronization patterns）"></a>基本的同步模式 （Basic synchronization patterns）</h2><h3 id="Signaling"><a href="#Signaling" class="headerlink" title="Signaling"></a>Signaling</h3><p>可以用来保证一个线程中的一段代码会早于另外一个线程中的一段代码运行。</p>
+<p>Thread A</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">statement a1</span><br><span class="line">sem.signal()</span><br></pre></td></tr></table></figure>
+<p>Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sem.wait()</span><br><span class="line">statement b1</span><br></pre></td></tr></table></figure>
+<p> a1 &gt; b1</p>
+<h3 id="Rendezvous"><a href="#Rendezvous" class="headerlink" title="Rendezvous"></a>Rendezvous</h3><p>要求： a1 &gt; b2  and  b1 &gt; a2</p>
+<p>Thread A</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">statement a1</span><br><span class="line">aArrived.signal() </span><br><span class="line">bArrived.wait()</span><br><span class="line">statement a2   // critical point</span><br></pre></td></tr></table></figure>
+<p>Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">statement b1</span><br><span class="line">bArrived.signal()</span><br><span class="line">aArrived.wait()</span><br><span class="line">statement b2   // critical point</span><br></pre></td></tr></table></figure>
+<h3 id="mutex"><a href="#mutex" class="headerlink" title="mutex"></a>mutex</h3><p>mutex很像一个在线程间传递的token，获得到token的线程可以处理。</p>
+<blockquote>
+<p>Mutex 是mutual exclusion的缩写。用mutex去保护critical regions</p>
+</blockquote>
+<p>Thread A 和 Thread B</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mutex.wait()</span><br><span class="line">#critical section</span><br><span class="line">count = count + 1 //for example</span><br><span class="line">mutex.signal()</span><br></pre></td></tr></table></figure>
+<h3 id="Multiplex"><a href="#Multiplex" class="headerlink" title="Multiplex"></a>Multiplex</h3><p>和mutex和像，只是容许多个线程同时进入critical regions。为了实现这样的效果，直接将semaphores 初始化为n（n个线程同时进入critical regions）。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">multiplex.wait()</span><br><span class="line">//critical section</span><br><span class="line">multiplex.signal()</span><br></pre></td></tr></table></figure>
+<h3 id="Barrier"><a href="#Barrier" class="headerlink" title="Barrier"></a>Barrier</h3><p>Rendezvous只容许两个线程。但是如果容许多个线程，就是Barrier，要求所有线程都不能执行<strong>critical point</strong>，除非所有的线程都已经执行了rendezvous。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">n = the number of threads</span><br><span class="line">count = 0 //有多少线程已经到来了 </span><br><span class="line">mutex = Semaphore(1) //对count的修改，进行并发控制</span><br><span class="line">barrier = Semaphore(0) //一直阻塞，直到所有的线程到达。</span><br><span class="line"></span><br><span class="line">rendezvous</span><br><span class="line">mutex.wait()</span><br><span class="line">count = count + 1 </span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">if count == n: barrier.signal()</span><br><span class="line"></span><br><span class="line">barrier.wait()   // 这样的wait和signal紧接着的情况，很常见，被叫做turnstile(旋转门)</span><br><span class="line">barrier.signal() // 因为它既可以控制线程们一个个的通过，也可以被锁住，不让所有的线程通过。</span><br><span class="line"></span><br><span class="line">cirtical point</span><br></pre></td></tr></table></figure>
+<h3 id="Reusable-barrier"><a href="#Reusable-barrier" class="headerlink" title="Reusable barrier"></a>Reusable barrier</h3><p>当所有的线程通过后，再次不容许任何线程通过，就可以再次使用。也被叫做<strong>two-phase barrier</strong></p>
+<h3 id="Preloaded-turnstile"><a href="#Preloaded-turnstile" class="headerlink" title="Preloaded turnstile"></a>Preloaded turnstile</h3><p><strong>turnstile</strong>是一个常用的组件，它有个不好的地方就是强制线程一个个的通过。可能造成大量的线程切换。</p>
+<p>基于reusable barrier ，如果最后一个打开旋转门的线程，可以预加载足够多的signal，就可以让相同数量的线程通过旋转门。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"># rendezvous</span><br><span class="line">mutex.wait()</span><br><span class="line">  count += 1</span><br><span class="line">  if count == n:</span><br><span class="line">    turnstile.signal(n)   // unlock the first</span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">turnstile.wait()     // first turnstile</span><br><span class="line"># critical point  </span><br><span class="line"></span><br><span class="line">mutex.wait()</span><br><span class="line">  count -= 1</span><br><span class="line">  if count == 0:</span><br><span class="line">    turnstile2.signal(n)  // unlock the second</span><br><span class="line">mutex.signal()</span><br><span class="line"></span><br><span class="line">turnstile2.wait()     // second turnstile</span><br></pre></td></tr></table></figure>
+<h3 id="Queue"><a href="#Queue" class="headerlink" title="Queue"></a>Queue</h3><p>//TODO</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/07/TheLittleBookOfSemaphores/" data-id="cjos8tzgy000grkwkicrlpu8w" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Netty" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/01/Netty/" class="article-date">
+  <time datetime="2018-03-31T16:00:00.000Z" itemprop="datePublished">2018-04-01</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/01/Netty/">Netty</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p><strong>Channel</strong> Sockets<br><strong>EventLoop</strong> Control flow, multithreading, concurrency<br><strong>ChannelFuture</strong> Asynchronous notification<br>–Netty in Action</p>
+</blockquote>
+<h2 id="Channel"><a href="#Channel" class="headerlink" title="Channel"></a>Channel</h2><p>在java中，基础I/O操作的依赖的基石就是Socket，而Channel就是提供了一组API，极大的化简了对Socket的操作。</p>
+<h2 id="EventLoop"><a href="#EventLoop" class="headerlink" title="EventLoop"></a>EventLoop</h2><p>EventLoop处理一个Connection生命周期内的所有事件。<br>几个概念间的关系：<br>EventLoopGroup包含一个或者多个EventLoop；<br>EventLoop会绑定一个Thtread。<br>一个Channel会注册到一个EventLoop上。<br>一个EventLoop可能会被分配给多个Channel。</p>
+<p>因为I/O操作在Netty中，都是异步的，没有一个操作可以立即返回。所以需要ChannelFuture。</p>
+<h2 id="ChannelHandler"><a href="#ChannelHandler" class="headerlink" title="ChannelHandler"></a>ChannelHandler</h2><p>ChannelHandler：是应用开发者最关注的，它被网络事件触发。处理inbound，outbound数据。<br>ChannelPipeline：包含一连串的ChannelHandler。而且，当Channel被创建时，就会被指定一个ChannelPipeline。细节：ChannelInitializer会负责安装一系列的ChannelHandler到Pipeline中。<br>Event顺着ChannelPipeline流动，中间经过一个个的ChannelHandler。PipeLine是双向流动的，所以会有两种ChannelHandler：ChannelInboundHandler 和 ChannelOutboundHandler。<br>ChannelHandlerContext保存着ChannelHandler和ChannelPipeline的绑定关系。<br>Adapter：ChannelhandlerAdapter是包含了基础实现的ChannelHandler。<br>Encoders 和 Decoders：netty提供了很多这样的抽象类，它们都是ChannelHandler。</p>
+<p>服务端，需要两套Channels，既两个EventLoopGroup。其中一个与ServerChannle相关联，里面的EventLoop负责为到来的l连接请求创建Channel，一旦这个channel被创建，另外一个EventLoopGroupj就会分配一个EventLoop，来和这个channel绑在一起。</p>
+<blockquote>
+<p>参考: <a href="http://owvvyywxv.bkt.clouddn.com/nio.pdf" target="_blank" rel="noopener">http://owvvyywxv.bkt.clouddn.com/nio.pdf</a></p>
+</blockquote>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/01/Netty/" data-id="cjos8tzgv000drkwkxs8g35lz" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Java_AQS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/04/01/Java_AQS/" class="article-date">
+  <time datetime="2018-03-31T16:00:00.000Z" itemprop="datePublished">2018-04-01</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/04/01/Java_AQS/">Java AQS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>java AbstractQueuedSynchronizer</p>
+<p>###以ReentrantLock为例</p>
+<p>首先ReentrantLock有公平和非公平模式:<code>NonfairSync</code> 和 <code>FairSync</code></p>
+<h4 id="FairSync"><a href="#FairSync" class="headerlink" title="FairSync"></a>FairSync</h4><p>lock方法的定义：获取锁。</p>
+<ul>
+<li>如果锁没有被其他线程获取，则获取锁并立刻返回，把锁的count设为1.</li>
+<li>如果锁已经被当前线程持有，则立刻返回，把锁的count +1.</li>
+<li>如果锁被其他线程持有，则当前线程会失去被调度的权利，等待被唤醒。</li>
+</ul>
+<p>假设有3个线程同时调用ReentrantLock的 lock方法。</p>
+<p><img src="image-20180824040623739.png" alt="image-20180824040623739"></p>
+<p>结合代码的解释可以参考：<a href="https://www.jianshu.com/p/d8eeb31bee5c" target="_blank" rel="noopener">https://www.jianshu.com/p/d8eeb31bee5c</a></p>
+<p>Synchronizer 同步器</p>
+<p>同步队列，同步节点，同步状态</p>
+<p><strong>AbstractQueuedSynchronizer</strong>  被用来实现blocking lock或者相关的同步器（semaphores，events）。这个类的基础是  <code>FIFO waiting queue</code>。且用一个原子的int值来表示同步状态。</p>
+<p>###子类该怎么定义？</p>
+<p>子类应该被定义为一个非public的内部帮助类。</p>
+<p>这个类为internal queue提供了各种便利的方法，同时也适用于condition objects。你可以引入这些到你的类里，做一些synchronization mechanics。</p>
+<h3 id="独占式同步状态的获取，释放"><a href="#独占式同步状态的获取，释放" class="headerlink" title="独占式同步状态的获取，释放"></a>独占式同步状态的获取，释放</h3><p>通过调用同步器的 acquire（int arg）方法来<strong>获取</strong>到同步状态。</p>
+<p>线程获取锁失败后，进入同步队列。</p>
+<p>首先，调用tryAcquire方法，尝试获取锁。如果获取失败，则构造<strong>同步节点</strong>，并通过addWaiter方法将<strong>同步节点</strong>加入到<strong>同步队列</strong>的尾部，最后调用acquireQueued方法，使该<strong>同步节点</strong>以死循环的方式获取到锁，且非中断。只有前置节点为头节点并且tryAcquire成功返回的时候，才会返回。否则就会让线程停止调度，直到unpark或者线程中断。<u>但是，如果前置节点为头结点，但是tryAcquire返回失败，怎么办？</u></p>
+<p>通过同步器的relase方法来<strong>释放</strong>同步状态。</p>
+<p>该方法会先调用tryRelease方法，然后会唤醒其他后续节点，通过调用unparkSuccessor方法，即调用了unpark方法。</p>
+<p>同步节点进入同步队列之后，就进入了一个自旋的过程，每个同步节点都在自己观察，当条件满足，就可以从自旋中退出。</p>
+<p>###用法：</p>
+<p>如果使用这个类作为自定义的synchronozier的基础。</p>
+<p>#####1必须实现下面的方法：</p>
+<p>  tryAcquire ： 查询是否可以获取，如果可以则获取。<br>  tryRelease<br>  tryAcquireShared<br>  tryReleaseShared<br>  isHeldExclusively</p>
+<p>上面的方法的实现，要尽量简短，不能<strong>阻塞</strong>。</p>
+<p>#####2 同步状态的修改（Synchronization state）<br> getState<br> setState<br> compareAndSetState<br> 来修改同步状态，可以保证状态的改变是安全的。</p>
+<p>######3 The CORE of exclusive synchronization:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Acquire:</span><br><span class="line">    <span class="keyword">while</span> (!tryAcquire(arg)) &#123;</span><br><span class="line">       <span class="comment">//enqueue thread if it is not already queued;</span></span><br><span class="line">       <span class="comment">//possibly block current thread;</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">Release:</span><br><span class="line">    <span class="keyword">if</span> (tryRelease(arg))</span><br><span class="line">       <span class="comment">//unblock the first queued thread;</span></span><br></pre></td></tr></table></figure></p>
+<p>#####Barging Strategy<br>TODO</p>
+<p>#####Examples</p>
+<p>举了2个例子：<strong>Mutex</strong> 和  <strong>BooleanLatch</strong></p>
+<p><strong>Mutext</strong><br>什么是mutex？Mutual（彼此的） exclusion 的缩写。我们使用mutex去保护临界区，从而防止竞争。进入临界区之前调用 <strong>acquire</strong> ，离开临界区之前调用<strong>release</strong>。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">aquire()&#123;</span><br><span class="line">    <span class="keyword">while</span> (!available)&#123;</span><br><span class="line">        ;<span class="comment">// busy wait</span></span><br><span class="line">    &#125;</span><br><span class="line">    available = <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">release() &#123;</span><br><span class="line">    available = <span class="keyword">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>BooleanLatch</strong><br>BooleanLatch是non-exclusive，所以使用<code>shared</code> aquire 和 release方法。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BooleanLatch</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Sync</span> <span class="keyword">extends</span> <span class="title">AbstractQueuedSynchronizer</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">isSignalled</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> getState() != <span class="number">0</span>; &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">tryAcquireShared</span><span class="params">(<span class="keyword">int</span> ignore)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">return</span> isSignalled() ? <span class="number">1</span> : -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">boolean</span> <span class="title">tryReleaseShared</span><span class="params">(<span class="keyword">int</span> ignore)</span> </span>&#123;</span><br><span class="line">      setState(<span class="number">1</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">final</span> Sync sync = <span class="keyword">new</span> Sync();</span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">isSignalled</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> sync.isSignalled(); &#125;</span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">signal</span><span class="params">()</span>         </span>&#123; sync.releaseShared(<span class="number">1</span>); &#125;</span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">await</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">    sync.acquireSharedInterruptibly(<span class="number">1</span>);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="waitStatus-讲解"><a href="#waitStatus-讲解" class="headerlink" title="waitStatus 讲解"></a>waitStatus 讲解</h3><h3 id="Latch"><a href="#Latch" class="headerlink" title="Latch"></a>Latch</h3><p>作用：A synchronization aid that allows one or more threads to wait until a set of operations being performed in other threads completes.</p>
+<p>主要方法： </p>
+<p>await()  阻塞等待<code>the count of latch</code>变为0.</p>
+<p>CountDown() 给<code>the count of latch</code> -1.</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/04/01/Java_AQS/" data-id="cjos8tzgt000arkwk5o7ciebz" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+
+
+  <nav id="page-nav">
+    
+    <a class="extend prev" rel="prev" href="/page/2/">&laquo; Prev</a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/">2</a><span class="page-number current">3</span>
+  </nav>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

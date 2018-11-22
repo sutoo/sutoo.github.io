@@ -62,93 +62,47 @@
       <div class="outer">
         <section id="main">
   
-    <article id="post-2018-04-20-Java_NIO" class="article article-type-post" itemscope="" itemprop="blogPost">
+    <article id="post-Java_synchronizer" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
-    <a href="/2018/11/22/2018-04-20-Java_NIO/" class="article-date">
-  <time datetime="2018-11-22T02:41:43.000Z" itemprop="datePublished">2018-11-22</time>
+    <a href="/2018/11/22/Java_synchronizer/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+    </h1>
+  
+
+      </header>
+    
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="Java-I-O模型"><a href="#Java-I-O模型" class="headerlink" title="Java I/O模型"></a>Java I/O模型</h1><h2 id="event-multiplexing"><a href="#event-multiplexing" class="headerlink" title="event multiplexing"></a>event multiplexing</h2><p>什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。</p>
-<p>UNIX Network Programming中给出的一个描述：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">What we need is the capability to tell the kernel that we want to be notified if one or more I/O conditions are ready (i.e., input is ready to be read, or the descriptor is capable of taking more output). This capability is called I/O multiplexing and is provided by the select and poll functions.</span><br></pre></td></tr></table></figure>
-<p>为了区分开下面三种I/O模型，我们需要了解下：</p>
-<p>read操作分为两个步骤：</p>
-<ul>
-<li>等待数据从网上传输过来，写入内核的buffer</li>
-<li>把数据从内核的buffer复制到用户的buffer</li>
-</ul>
-<p><strong>阻塞I/O</strong> (Blocking I/O model)：</p>
-<p>调用read时，线程会被阻塞住，直到数据写入到<strong>用户</strong>的buffer。</p>
-<p>​              问题：需要大量的线程。费内存，线程切换对CPU的开销</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034421623.png" alt="image-20180803034421623"></p>
-<p><strong>非阻塞I/O(Nonblocking I/O model)</strong>：</p>
-<p>read时，如果有数据，就和阻塞I/O一样；如果没有数据，就立即返回失败。</p>
-<p>​               问题：需要轮询，也很费CPU</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034547878.png" alt="image-20180803034547878"></p>
-<p><strong>IO多路复用</strong>(I/O Multiplexing model)：</p>
-<p>使用一个线程来检查多个文件描述符的状态，看是否有数据到达，阻塞直到有一个文件描述符有数据到达。后续的操作，可以在同一个线程里面执行，也可以另起线程。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034630907.png" alt="image-20180803034630907"></p>
-<h2 id="I-O多路复用的多种实现"><a href="#I-O多路复用的多种实现" class="headerlink" title="I/O多路复用的多种实现"></a>I/O多路复用的多种实现</h2><h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *timeout)</span><br></pre></td></tr></table></figure>
-<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">poll(struct pollfd *fds, int nfds, int timeout)</span><br><span class="line"></span><br><span class="line">struct pollfd &#123;</span><br><span class="line">    int fd;</span><br><span class="line">    short events;</span><br><span class="line">    short revents;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="kqueue"><a href="#kqueue" class="headerlink" title="kqueue"></a>kqueue</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">int kqueue(void);</span><br><span class="line">int kevent(int kq, const struct kevent *changelist, int nchanges, </span><br><span class="line">           struct kevent *eventlist, int nevents, const struct timespec *timeout);</span><br><span class="line">           </span><br><span class="line">struct kevent &#123;</span><br><span class="line">     uintptr_t       ident;          /* identifier for this event */</span><br><span class="line">     int16_t         filter;         /* filter for event */</span><br><span class="line">     uint16_t        flags;          /* general flags */</span><br><span class="line">     uint32_t        fflags;         /* filter-specific flags */</span><br><span class="line">     intptr_t        data;           /* filter-specific data */</span><br><span class="line">     void            *udata;         /* opaque user data identifier */</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
-<h2 id="NIO中的selector"><a href="#NIO中的selector" class="headerlink" title="NIO中的selector"></a>NIO中的selector</h2><p>Java doc中对它的描述：<strong>A mutiplexor of SelectableChannel objects</strong></p>
-<p>所以很自然的想到：他的底层实现应该就是基于 <strong>event multiplexing</strong> 的各个操作系统的实现： epoll， kqueue。</p>
-<p>在macOS上，就是这个  <strong><em>KQueueSelectorImpl</em></strong></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueSelectorImpl</span> <span class="keyword">extends</span> <span class="title">SelectorImp</span></span>&#123;</span><br><span class="line">    </span><br><span class="line">     <span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">doSelect</span><span class="params">(<span class="keyword">long</span> var1)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="keyword">boolean</span> var3 = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">if</span>(<span class="keyword">this</span>.closed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ClosedSelectorException();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line"></span><br><span class="line">            <span class="keyword">int</span> var7;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.begin();</span><br><span class="line">                var7 = <span class="keyword">this</span>.kqueueWrapper.poll(var1);</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.end();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.updateSelectedKeys(var7);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueArrayWrapper</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">poll</span><span class="params">(<span class="keyword">long</span> var1)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.updateRegistrations();</span><br><span class="line">        <span class="keyword">int</span> var3 = <span class="keyword">this</span>.kevent0(<span class="keyword">this</span>.kq, <span class="keyword">this</span>.keventArrayAddress, <span class="number">128</span>, var1);</span><br><span class="line">        <span class="keyword">return</span> var3;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">native</span> <span class="keyword">int</span> <span class="title">kevent0</span><span class="params">(<span class="keyword">int</span> var1, <span class="keyword">long</span> var2, <span class="keyword">int</span> var4, <span class="keyword">long</span> var5)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>java中的selector最终会调用到native方法 kevent0.</p>
-<h2 id="NIO中的Channel"><a href="#NIO中的Channel" class="headerlink" title="NIO中的Channel"></a>NIO中的Channel</h2><p>一个Channel（通道）代表和某一实体的连接，这个实体可以是文件、网络套接字等。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ServerSocketChannelImpl</span> <span class="keyword">extends</span> <span class="title">ServerSocketChannel</span> <span class="keyword">implements</span> <span class="title">SelChImp</span></span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> NativeDispatcher nd;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> FileDescriptor fd;</span><br><span class="line">    ServerSocket socket;</span><br><span class="line">    <span class="comment">//......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>ServerSocketChannel 通过<strong>register</strong>方法与一个Selector绑定。</p>
-<h2 id="NIO中的Buffer"><a href="#NIO中的Buffer" class="headerlink" title="NIO中的Buffer"></a>NIO中的Buffer</h2><p>Buffer中有3个很重要的变量，它们是理解Buffer工作机制的关键，分别是</p>
-<ul>
-<li>capacity （总容量）</li>
-<li>position （指针当前位置）</li>
-<li>limit （读/写边界位置）</li>
-</ul>
-<p>在对Buffer进行读/写操作前，我们可以调用Buffer类提供的一些辅助方法来正确设置 position 和 limit 的值，主要有如下几个</p>
-<ul>
-<li>flip(): 设置 limit 为 position 的值，然后 position 置为0。对Buffer进行读取操作前调用。</li>
-<li>rewind(): 仅仅将 position 置0。一般是在重新读取Buffer数据前调用，比如要读取同一个Buffer的数据写入多个通道时会用到。</li>
-<li>clear(): 回到初始状态，即 limit 等于 capacity，position 置0。重新对Buffer进行写入操作前调用。</li>
-<li>compact(): 将未读取完的数据（position 与 limit 之间的数据）移动到缓冲区开头，并将 position 设置为这段数据末尾的下一个位置。其实就等价于重新向缓冲区中写入了这么一段数据。</li>
-</ul>
-<h3 id="NIO-server完整实例"><a href="#NIO-server完整实例" class="headerlink" title="NIO server完整实例"></a>NIO server完整实例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NioServer</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="comment">// 创建一个selector</span></span><br><span class="line">        Selector selector = Selector.open();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 初始化TCP连接监听通道</span></span><br><span class="line">        ServerSocketChannel listenChannel = ServerSocketChannel.open();</span><br><span class="line">        listenChannel.bind(<span class="keyword">new</span> InetSocketAddress(<span class="number">9999</span>));</span><br><span class="line">        listenChannel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">        <span class="comment">// 注册到selector（监听其ACCEPT事件）</span></span><br><span class="line">        listenChannel.register(selector, SelectionKey.OP_ACCEPT);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 创建一个缓冲区</span></span><br><span class="line">        ByteBuffer buffer = ByteBuffer.allocate(<span class="number">100</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            selector.select(); <span class="comment">//阻塞，直到有监听的事件发生</span></span><br><span class="line">            Iterator&lt;SelectionKey&gt; keyIter = selector.selectedKeys().iterator();</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 通过迭代器依次访问select出来的Channel事件</span></span><br><span class="line">            <span class="keyword">while</span> (keyIter.hasNext()) &#123;</span><br><span class="line">                SelectionKey key = keyIter.next();</span><br><span class="line">                </span><br><span class="line">                <span class="keyword">if</span> (key.isAcceptable()) &#123; <span class="comment">// 有连接可以接受</span></span><br><span class="line">                    SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();</span><br><span class="line">                    channel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">                    channel.register(selector, SelectionKey.OP_READ);</span><br><span class="line">                    </span><br><span class="line">                    System.out.println(<span class="string">"与【"</span> + channel.getRemoteAddress() + <span class="string">"】建立了连接！"</span>);</span><br><span class="line">                    </span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (key.isReadable()) &#123; <span class="comment">// 有数据可以读取</span></span><br><span class="line">                    buffer.clear();</span><br><span class="line">    </span><br><span class="line">                    <span class="comment">// 读取到流末尾说明TCP连接已断开，</span></span><br><span class="line">                    <span class="comment">// 因此需要关闭通道或者取消监听READ事件</span></span><br><span class="line">                    <span class="comment">// 否则会无限循环</span></span><br><span class="line">                    <span class="keyword">if</span> (((SocketChannel) key.channel()).read(buffer) == -<span class="number">1</span>) &#123;</span><br><span class="line">                        key.channel().close();</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125; </span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">// 按字节遍历数据</span></span><br><span class="line">                    buffer.flip();</span><br><span class="line">                    <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                        <span class="keyword">byte</span> b = buffer.get();</span><br><span class="line">                        </span><br><span class="line">                        <span class="keyword">if</span> (b == <span class="number">0</span>) &#123; <span class="comment">// 客户端消息末尾的\0</span></span><br><span class="line">                            System.out.println();</span><br><span class="line">                            </span><br><span class="line">                            <span class="comment">// 响应客户端</span></span><br><span class="line">                            buffer.clear();</span><br><span class="line">                            buffer.put(<span class="string">"Hello, Client!\0"</span>.getBytes());</span><br><span class="line">                            buffer.flip();</span><br><span class="line">                            <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                                ((SocketChannel) key.channel()).write(buffer);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            System.out.print((<span class="keyword">char</span>) b);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 已经处理的事件一定要手动移除</span></span><br><span class="line">                keyIter.remove();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422003741608.png" alt="image-20180422003741608"></p>
-<p>上面的例子可以用上图来描述，上图中的Acceptor，就是上面的代码运行的线程。</p>
-<h2 id="NIO与传统IO的区别"><a href="#NIO与传统IO的区别" class="headerlink" title="NIO与传统IO的区别"></a>NIO与传统IO的区别</h2><p>NIO和传统IO（一下简称IO）之间第一个最大的区别是，IO是面向流的，NIO是面向缓冲区的。 Java IO面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方。此外，它不能前后移动流中的数据。如果需要前后移动从流中读取的数据，需要先将它缓存到一个缓冲区。NIO的缓冲导向方法略有不同。数据读取到一个它稍后处理的缓冲区，需要时可在缓冲区中前后移动。这就增加了处理过程中的灵活性。</p>
-<p>IO的各种流是阻塞的。这意味着，当一个线程调用read() 或 write()时，该线程被阻塞，直到有一些数据被读取，或数据完全写入。</p>
-<p>但是，由于NIO的非阻塞的特点，就导致了一些其他问题，编码复杂，而且存在半包问题。</p>
-<h2 id="Reactor模型"><a href="#Reactor模型" class="headerlink" title="Reactor模型"></a>Reactor模型</h2><h4 id="Reactor模型中的组件"><a href="#Reactor模型中的组件" class="headerlink" title="Reactor模型中的组件"></a>Reactor模型中的组件</h4><ul>
-<li>Reactor:Reactor是IO事件的派发者。</li>
-<li>Acceptor:Acceptor接受client连接，建立对应client的Handler，并向Reactor注册此Handler。</li>
-<li>Handler:和一个client通讯的实体，按这样的过程实现业务的处理。</li>
-</ul>
-<p>对应上面的NIO代码来看:</p>
-<ul>
-<li>Reactor：相当于有<strong>分发功能</strong>的Selector</li>
-<li>Acceptor：NIO中建立连接的那个判断分支</li>
-<li>Handler：消息读写处理等操作类</li>
-</ul>
-<h4 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h4><p>和NIO很相似，只是对IO读到的数据的处理（有数据可以读取的分支里面的代码），放到了<strong>Handler</strong>中。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010715580.png" alt="image-20180422010715580"></p>
-<h4 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h4><p>将数据的处理代码，改为多线程实现。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010833942.png" alt="image-20180422010833942"></p>
-<h4 id="主从Reactor模型"><a href="#主从Reactor模型" class="headerlink" title="主从Reactor模型"></a>主从Reactor模型</h4><p>因为Reactor既要处理IO连接请求，又要处理Read，所以出现了下面的方式，MainReactor处理IO连接请求，SubReactor处理Read等。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422011045446.png" alt="image-20180422011045446"></p>
-<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><p><a href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html" target="_blank" rel="noopener">https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html</a></p>
-<p><a href="http://www.ivaneye.com/2016/07/23/iomodel.html" target="_blank" rel="noopener">http://www.ivaneye.com/2016/07/23/iomodel.html</a></p>
-<p><a href="https://www.cnblogs.com/coderjun/p/7100423.html" target="_blank" rel="noopener">https://www.cnblogs.com/coderjun/p/7100423.html</a></p>
+        <p>#JVM synchronizer    </p>
+<h4 id="SafePoint"><a href="#SafePoint" class="headerlink" title="SafePoint"></a>SafePoint</h4><p>避免程序长时间运行而不进入safepoint</p>
+<h4 id="markword"><a href="#markword" class="headerlink" title="markword"></a>markword</h4><p>markword是java对象数据结构中的一部分。</p>
+<p>markword数据的长度在32位和64位的虚拟机（未开启压缩指针）中分别为32bit和64bit，它的<strong>最后2bit是锁状态标志位</strong>，用来标记当前对象的状态</p>
+<p><img src="image-20180905033426190.png" alt="image-20180905033426190"></p>
+<h4 id="CAS的问题"><a href="#CAS的问题" class="headerlink" title="CAS的问题"></a>CAS的问题</h4><p>CAS为什么会引入本地延迟？这要从SMP（对称多处理器）架构说起。下图大概表明了SMP的结构：</p>
+<p><img src="411087_1311836022idIz.png" alt="411087_1311836022idIz"></p>
+<p>其意思是所有的CPU会共享一条系统总线（BUS），靠此总线连接主存。每个核都有自己的一级缓存，各核相对于BUS对称分布，因此这种结构称为“对称多处理器”。</p>
+<p>CAS的全称为Compare-And-Swap，是一条CPU的原子指令。Core1和Core2可能会同时把主存中某个位置的值Load到自己的L1 Cache中，当Core1在自己的L1 Cache中修改这个位置的值时，会通过总线，使Core2中L1 Cache对应的值“失效”，而Core2一旦发现自己L1 Cache中的值失效（称为Cache命中缺失）则会通过总线从内存中加载该地址最新的值，大家通过总线的来回通信称为“Cache一致性流量”，因为总线被设计为固定的“通信能力”，如果Cache一致性流量过大，总线将成为瓶颈。</p>
+<p>全局安全点</p>
+<h3 id="偏向锁-Biased-Locking"><a href="#偏向锁-Biased-Locking" class="headerlink" title="偏向锁(Biased Locking)"></a>偏向锁(Biased Locking)</h3><p>偏向锁就是为了消除CAS，消除无竞争情况下的同步原语，即轻量锁的CAS。</p>
+<p>它会偏向于第一个访问锁的线程，如果在运行过程中，同步锁只有一个线程访问，不存在多线程争用的情况，则线程是不需要触发同步的，减少加锁／解锁的一些CAS操作（比如等待队列的一些CAS操作），这种情况下，就会给线程加一个偏向锁。 如果在运行过程中，遇到了其他线程抢占锁，则持有偏向锁的线程会被挂起，JVM会消除它身上的偏向锁，将锁恢复到标准的轻量级锁。</p>
+<p>就是说如果同一时间只有一个线程来获取锁的话，是满足偏向锁的条件的</p>
+<p>问题1 ：偏向锁什么时候升级为轻量锁，怎么升级</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/2018-04-20-Java_NIO/" data-id="cjos04qel0001cfwkd9dqz8jf" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/22/Java_synchronizer/" data-id="cjos8tzgu000crkwk38msri1f" class="article-share-link">Share</a>
       
       
     </footer>
@@ -158,19 +112,528 @@
 
 
   
-    <article id="post-2018-11-9-Histograms" class="article article-type-post" itemscope="" itemprop="blogPost">
+    <article id="post-DBs_mysql_locks" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
-    <a href="/2018/11/22/2018-11-9-Histograms/" class="article-date">
-  <time datetime="2018-11-22T02:40:53.000Z" itemprop="datePublished">2018-11-22</time>
+    <a href="/2018/11/22/DBs_mysql_locks/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+    </h1>
+  
+
+      </header>
+    
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="Histograms"><a href="#Histograms" class="headerlink" title="Histograms"></a>Histograms</h1><p>A <code>Histogram</code> measures the distribution of values in a stream of data</p>
+        <p>###transaction locks</p>
+<p>维护在不同的Isolation level下数据库的<strong>Atomicity</strong>和<strong>Consistency</strong>两大基本特性。</p>
+<ul>
+<li><p><strong>table locks</strong></p>
+<p>对整个表加锁，影响所有记录。通常用在DDL语句中，如DELETE TABLE,ALTER TABLE等。</p>
+</li>
+<li><p><strong>row locks</strong></p>
+<p>对一行记录加锁，只影响一条记录。通常用在DML语句中，如INSERT, UPDATE, DELETE等。</p>
+</li>
+</ul>
+<p>InnoDB定义了如下的lock mode:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Basic lock modes */</span></span><br><span class="line"><span class="keyword">enum</span> lock_mode &#123;</span><br><span class="line">LOCK_IS = <span class="number">0</span>,     <span class="comment">/* intention shared */</span></span><br><span class="line">LOCK_IX,     <span class="comment">/* intention exclusive */</span></span><br><span class="line">LOCK_S,          <span class="comment">/* shared */</span></span><br><span class="line">LOCK_X,          <span class="comment">/* exclusive */</span></span><br><span class="line">LOCK_AUTO_INC,     <span class="comment">/* locks the auto-inc counter of a table</span></span><br><span class="line"><span class="comment">......</span></span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>shared lock （S) 容许获得锁的事务去 读一行</p>
+</li>
+<li><p>exclusive lock （X) 容许获得锁的事务去更新或者删除一行</p>
+</li>
+<li><p>Intention shared （IS）  获取IS表示事务希望获取S锁（或更高）。在获取这一行的S锁之前，需要先获取表的IS</p>
+</li>
+<li><p>Intention exclusive （IX） 获取IX表示事务希望获取X锁。在获取这一行的X锁之前，需要先获取表的IX。</p>
+</li>
+</ul>
+<p>####lock type compatibility：</p>
+<p><img src="image-20180912002757181.png" alt="image-20180912002757181"></p>
+<p>####解释：</p>
+<p>S，X锁，就像是读写锁，S是读锁，X是写锁。（注：S锁只有<code>IN SHARE MODE</code>才会加。一般的select是consistent read）。在给一行记录加锁前，首先要给该表加意向锁。</p>
+<p>####意向锁的作用：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">The main purpose of intention locks is to show that someone is locking a row, or going to lock a row in the table.</span><br></pre></td></tr></table></figure>
+<p>为方便检测table lock 和 row lock之间的冲突，引入了意向锁。 </p>
+<p>当再向一个表添加表级X锁的时候</p>
+<ul>
+<li>如果没有意向锁的话，则需要遍历所有整个表判断是否有行锁的存在，以免发生冲突</li>
+<li>如果有了意向锁，只需要判断该意向锁与即将添加的表级锁是否兼容即可。因为意向锁的存在代表了，有行级锁的存在或者即将有行级锁的存在。因而无需遍历整个表，即可获取结果</li>
+</ul>
+<p>###内存锁</p>
+<p> 为了维护内存结构的一致性，比如Dictionary cache、sync array、trx system等结构。 InnoDB并没有直接使用glibc提供的库，而是自己封装了两类：</p>
+<ol>
+<li>一类是mutex，实现内存结构的串行化访问</li>
+<li>一类是rw lock，实现读写阻塞，读读并发的访问的读写锁</li>
+</ol>
+<p>###Row Level Lock 细分</p>
+<p>####Record Locks </p>
+<p>在index records上的锁。比方说：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> c1 <span class="keyword">FROM</span> t <span class="keyword">WHERE</span> c1 = <span class="number">10</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>;</span><br></pre></td></tr></table></figure>
+<p>这个就为c1 = 10的这个索引加了锁，防止其他事物对所有c1=10的行做inserting, updating,deleting操作。</p>
+<h4 id="Gap-Locks"><a href="#Gap-Locks" class="headerlink" title="Gap Locks"></a>Gap Locks</h4><p>是一种在index records之间的一种锁。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> c1 <span class="keyword">FROM</span> t <span class="keyword">WHERE</span> c1 <span class="keyword">BETWEEN</span> <span class="number">10</span> <span class="keyword">and</span> <span class="number">20</span> <span class="keyword">FOR</span> <span class="keyword">UPDATE</span>;</span><br></pre></td></tr></table></figure>
+<p>阻止其他事物向c1 的10～20区间内，<strong>插入</strong>数据。（只有插入）</p>
+<p>在gap lock锁定的范围内，可以有0～n个index records。</p>
+<p>gap lock 是在性能和一致性上的一个折衷，只在某些事物隔离级别下生效。</p>
+<p>特点：</p>
+<p>1 使用unique index来查单条的语句不会用到gap lock</p>
+<p>2 gap lock之间不会有冲突，X-gap lock 和S-gap lock没什么区别。</p>
+<p>3 gap lock只是为了防止向一个区间内插入</p>
+<h4 id="Next-Key-Locks"><a href="#Next-Key-Locks" class="headerlink" title="Next-Key Locks"></a>Next-Key Locks</h4><p>是record lock 和gap lock的组合：当前index record 的 record lock + 当前index record之前的区域的 gap lock。</p>
+<p>举例：index record为10，11，13，20，则next-key lock可以有以下几种可能：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">(negative infinity, 10]</span><br><span class="line">(10, 11]</span><br><span class="line">(11, 13]</span><br><span class="line">(13, 20]</span><br><span class="line">(20, positive infinity)</span><br></pre></td></tr></table></figure>
+<p>作用：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">By default, InnoDB operates in REPEATABLE READ transaction isolation level. In this case, InnoDB uses next-key locks for searches and index scans, which prevents phantom rows</span><br></pre></td></tr></table></figure>
+<p>InnoDB使用next-key locks 来防止幻读。</p>
+<p>幻读，就是在一个事物内，两次select，第二次得到了一个新的row。</p>
+<p>所以在锁住当前记录的同事，要把他到前一个记录的‘gap’也锁住。才能保证。不会出现新的纪录。</p>
+<h4 id="Insert-Intention-Locks"><a href="#Insert-Intention-Locks" class="headerlink" title="Insert Intention Locks"></a>Insert Intention Locks</h4><p>//TODO</p>
+<h4 id="AUTO-INC-Locks"><a href="#AUTO-INC-Locks" class="headerlink" title="AUTO-INC Locks"></a>AUTO-INC Locks</h4><p>是一个table level的锁，当传入有AUTO_INCREMENT列的字段的时候。如果一个事物在插入几条记录，其他事物也想插入时，必须等待。否则第一个事物就无法获取到连续的自增值。当然，自增序列的顺序的可预见性和插入的并发性能，也是一个权衡的点，可以通过<code>innodb_autoinc_lock_mode</code>来设置。</p>
+<p>具体参考：<a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-auto-increment-handling.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/8.0/en/innodb-auto-increment-handling.html</a></p>
+<p>###</p>
+<p>###Transaction Isolation Levels</p>
+<p>事物隔离级别，是ACID中的I。</p>
+<p>前置知识：</p>
+<p>Consistent Reads： 无锁的select，（plain select）,MVCC</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">A consistent read means that InnoDB uses multi-versioning to present to a query a snapshot of the database at a point in time.</span><br></pre></td></tr></table></figure>
+<p>Locking Reads：<code>SELECT</code> with <code>FOR UPDATE</code> or <code>FOR SHARE</code>, <code>UPDATE</code>, and <code>DELETE</code> statements</p>
+<h4 id="Repeatalbe-Read"><a href="#Repeatalbe-Read" class="headerlink" title="Repeatalbe Read"></a>Repeatalbe Read</h4><p>innoDB默认隔离级别。</p>
+<ul>
+<li>Consistent Reads，即无锁的select，读的都是事物中第一个select得到的snapshot。</li>
+<li>Locking Reads <ul>
+<li>使用了唯一索引：只有record lock</li>
+<li>没使用惟一索引：使用next-key lock 锁住区间。</li>
+</ul>
+</li>
+</ul>
+<h4 id="Read-Commited"><a href="#Read-Commited" class="headerlink" title="Read Commited"></a>Read Commited</h4><ul>
+<li><p>Consistent Reads：每一个select（即使在同一个事物内）都是一个新的snapshot。</p>
+</li>
+<li><p>Locking Reads：只上Record lock，无gap lock或next-lock</p>
+</li>
+</ul>
+<p>所以，<code>幻读</code>出现。</p>
+<p>####READ UNCOMMITTED</p>
+<h4 id="SERIALIZABLE"><a href="#SERIALIZABLE" class="headerlink" title="SERIALIZABLE"></a>SERIALIZABLE</h4><h3 id="Locks-Set-by-Different-SQL-Statements-in-InnoDB"><a href="#Locks-Set-by-Different-SQL-Statements-in-InnoDB" class="headerlink" title="Locks Set by Different SQL Statements in InnoDB"></a>Locks Set by Different SQL Statements in InnoDB</h3><ul>
+<li><code>Select ... from...</code>是consistent read,读一个snapshot。除非是SERIALIZABLE隔离级别，这个时候，设置shared next-key lock。</li>
+<li><code>select ... for update</code> 和 <code>select ... for share</code>会加X next-key lock。如果是唯一索引，会加<code>record lock</code>。</li>
+<li><code>Update...where..</code>会加 X next-key lock。如果是唯一索引，会加<code>record lock</code>。</li>
+<li><code>delete from ... where</code>加X next-key lock。如果是唯一索引，会加<code>record lock</code>。</li>
+<li><code>insert</code>会给当前插入的行加<code>record lock</code>。</li>
+</ul>
+<p>参考：<a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-locks-set.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/8.0/en/innodb-locks-set.html</a></p>
+<h3 id="Consistent-Reads"><a href="#Consistent-Reads" class="headerlink" title="Consistent Reads"></a>Consistent Reads</h3><p>consistent reads的含义是InnodB使用multi-versioning去给查询提供一个数据库的snapshot。查询只能看到这个点之前提交的事物的改动，而对之后的一无所知。</p>
+<p>Consistent read is the default mode in which <code>InnoDB</code> processes <a href="https://dev.mysql.com/doc/refman/8.0/en/select.html" target="_blank" rel="noopener"><code>SELECT</code></a> statements in <a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html#isolevel_read-committed" target="_blank" rel="noopener"><code>READ COMMITTED</code></a>and <a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html#isolevel_repeatable-read" target="_blank" rel="noopener"><code>REPEATABLE READ</code></a> isolation levels.</p>
+<p> A consistent read does not set any locks on the tables it accesses,</p>
+<p>If you want to see the “freshest” state of the database, use either the <a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html#isolevel_read-committed" target="_blank" rel="noopener"><code>READ COMMITTED</code></a> isolation level or a <a href="https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_locking_read" target="_blank" rel="noopener">locking read</a>:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> * <span class="keyword">FROM</span> t <span class="keyword">FOR</span> <span class="keyword">SHARE</span>;</span><br></pre></td></tr></table></figure>
+<p>参考：<a href="https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/8.0/en/innodb-consistent-read.html</a></p>
+<h3 id="Undo"><a href="#Undo" class="headerlink" title="Undo"></a>Undo</h3><p>Undo Log是为了实现事务的<strong>原子性</strong>，在MySQL数据库InnoDB存储引擎中，还用UndoLog来实现多版本并发控制(简称：MVCC)。 -事务的原子性(Atomicity) 事务中的所有操作，要么全部完成，要么不做任何操作，不能只做部分操作。如果在执行的过程中发了错误，要回滚(Rollback)到事务开始前的状态，就像这个事务从来没有执行过。</p>
+<p>参考：<a href="https://www.cnblogs.com/kongzhongqijing/articles/7905051.html" target="_blank" rel="noopener">https://www.cnblogs.com/kongzhongqijing/articles/7905051.html</a></p>
+<h3 id="Redo"><a href="#Redo" class="headerlink" title="Redo"></a>Redo</h3><p>记录的是新数据的备份。在事务提交前，只要将Redo Log持久化即可，不需要将数据持久化。当系统崩溃时，虽然数据没有持久化，<br>但是RedoLog已经持久化。系统可以根据RedoLog的内容，将所有数据恢复到最新的状态。</p>
+<p>InnoDB有<code>buffer pool</code>（简称bp）。bp是数据库页面的缓存，对InnoDB的任何修改操作都会首先在bp的page上进行，然后这样的页面将被标记为dirty并被放到专门的flush list上，后续将由master thread或专门的刷脏线程阶段性的将这些页面写入磁盘（disk or ssd）。这样的好处是避免每次写操作都操作磁盘导致大量的随机IO，阶段性的刷脏可以将多次对页面的修改merge成一次IO操作，同时异步写入也降低了访问的时延。然而，如果在dirty page还未刷入磁盘时，server非正常关闭，这些修改操作将会丢失，如果写入操作正在进行，甚至会由于损坏数据文件导致数据库不可用。为了避免上述问题的发生，Innodb将所有对页面的修改操作写入一个专门的文件，并在数据库启动时从此文件进行恢复操作，这个文件就是redo log file。这样的技术推迟了bp页面的刷新，从而提升了数据库的吞吐，有效的降低了访问时延。带来的问题是额外的写redo log操作的开销（顺序IO，当然很快），以及数据库启动时恢复操作所需的时间。</p>
+<p>redo log包括两部分：</p>
+<ul>
+<li>一是内存中的日志缓冲(redo log buffer)，该部分日志是易失性的；</li>
+<li>二是磁盘上的重做日志文件(redo log file)，该部分日志是持久的。</li>
+</ul>
+<p>在概念上，innodb通过<strong>force log at commit</strong>机制实现事务的持久性，即在事务提交的时候，必须先将该事务的所有事务日志写入到磁盘上的redo log file和undo log file中进行持久化。</p>
+<p>为了确保每次日志都能写入到事务日志文件中，在每次将log buffer中的日志写入日志文件的过程中都会调用一次操作系统的fsync操作(即fsync()系统调用)。因为MariaDB/MySQL是工作在用户空间的，MariaDB/MySQL的log buffer处于用户空间的内存中。要写入到磁盘上的log file中(redo:ib_logfileN文件,undo:share tablespace或.ibd文件)，中间还要经过操作系统内核空间的os buffer，调用fsync()的作用就是将OS buffer中的日志刷到磁盘上的log file中。</p>
+<p>也就是说，从redo log buffer写日志到磁盘的redo log file中，过程如下：</p>
+<p><img src="733013-20180508101949424-938931340.png" alt="733013-20180508101949424-938931340"></p>
+<p>MySQL支持用户自定义在commit时如何将log buffer中的日志刷log file中。这种控制通过变量 innodb_flush_log_at_trx_commit 的值来决定。该变量有3种值：0、1、2，默认为1。但注意，这个变量只是控制commit动作是否刷新log buffer到磁盘。</p>
+<ul>
+<li>当设置为1的时候，事务每次提交都会将log buffer中的日志写入os buffer并调用fsync()刷到log file on disk中。这种方式即使系统崩溃也不会丢失任何数据，但是因为每次提交都写入磁盘，IO的性能较差。</li>
+<li>当设置为0的时候，事务提交时不会将log buffer中日志写入到os buffer，而是每秒写入os buffer并调用fsync()写入到log file on disk中。也就是说设置为0时是(大约)每秒刷新写入到磁盘中的，当系统崩溃，会丢失1秒钟的数据。</li>
+<li>当设置为2的时候，每次提交都仅写入到os buffer，然后是每秒调用fsync()将os buffer中的日志写入到log file on disk。</li>
+</ul>
+<p><img src="733013-20180508104623183-690986409.png" alt="733013-20180508104623183-690986409"></p>
+<p>参考：</p>
+<p><a href="https://www.cnblogs.com/f-ck-need-u/archive/2018/05/08/9010872.html" target="_blank" rel="noopener">https://www.cnblogs.com/f-ck-need-u/archive/2018/05/08/9010872.html</a></p>
+<p><a href="https://www.cnblogs.com/kongzhongqijing/articles/7905051.html" target="_blank" rel="noopener">https://www.cnblogs.com/kongzhongqijing/articles/7905051.html</a></p>
+<h3 id="MVCC"><a href="#MVCC" class="headerlink" title="MVCC"></a>MVCC</h3><p>上述更新前建立undo log，根据各种策略读取时非阻塞就是MVCC，undo log中的行就是MVCC中的多版本，这个可能与我们所理解的MVCC有较大的出入，一般我们认为MVCC有下面几个特点：</p>
+<ul>
+<li>每行数据都存在一个版本，每次数据更新时都更新该版本</li>
+<li>修改时Copy出当前版本随意修改，各个事务之间无干扰</li>
+<li>保存时比较版本号，如果成功（commit），则覆盖原记录；失败则放弃copy（rollback）</li>
+</ul>
+<p>就是每行都有版本号，保存时根据版本号决定是否成功，听起来含有乐观锁的味道，而Innodb的实现方式是：</p>
+<ul>
+<li>事务以排他锁的形式修改原始数据</li>
+<li>把修改前的数据存放于undo log，通过回滚指针与主数据关联</li>
+<li>修改成功（commit）啥都不做，失败则恢复undo log中的数据（rollback）</li>
+</ul>
+<p>二者最本质的区别是，当修改数据时是否要排他锁定，如果锁定了还算不算是MVCC？ </p>
+<p>Innodb的实现真算不上MVCC，因为并没有实现核心的多版本共存，undo log中的内容只是串行化的结果，记录了多个事务的过程，不属于多版本共存。但理想的MVCC是难以实现的，当事务仅修改一行记录使用理想的MVCC模式是没有问题的，可以通过比较版本号进行回滚；但当事务影响到多行数据时，理想的MVCC据无能为力了。</p>
+<p>比如，如果Transaciton1执行理想的MVCC，修改Row1成功，而修改Row2失败，此时需要回滚Row1，但因为Row1没有被锁定，其数据可能又被Transaction2所修改，如果此时回滚Row1的内容，则会破坏Transaction2的修改结果，导致Transaction2违反ACID。</p>
+<p>理想MVCC难以实现的根本原因在于企图通过乐观锁代替二段提交。修改两行数据，但为了保证其一致性，与修改两个分布式系统中的数据并无区别，而二提交是目前这种场景保证一致性的唯一手段。二段提交的本质是锁定，乐观锁的本质是消除锁定，二者矛盾，故理想的MVCC难以真正在实际中被应用，Innodb只是借了MVCC这个名字，提供了读的非阻塞而已。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/DBs_mysql_locks/" data-id="cjos8tzhm000krkwkvigvm5c5" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-BTreeStruct" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/BTreeStruct/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>btree的go实现：<a href="https://github.com/sutoo/btree/blob/master/btree.go" target="_blank" rel="noopener">https://github.com/sutoo/btree/blob/master/btree.go</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Item represents a single object in the tree.</span></span><br><span class="line"><span class="keyword">type</span> Item <span class="keyword">interface</span> &#123;</span><br><span class="line">	<span class="comment">// Less tests whether the current item is less than the given argument.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// This must provide a strict weak ordering.</span></span><br><span class="line">	<span class="comment">// If !a.Less(b) &amp;&amp; !b.Less(a), we treat this to mean a == b (i.e. we can only</span></span><br><span class="line">	<span class="comment">// hold one of either a or b in the tree).</span></span><br><span class="line">	Less(than Item) <span class="keyword">bool</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> items []Item</span><br><span class="line"><span class="comment">// children stores child nodes in a node.</span></span><br><span class="line"><span class="keyword">type</span> children []*node</span><br><span class="line"></span><br><span class="line"><span class="comment">// node is an internal node in a tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// It must at all times maintain the invariant that either</span></span><br><span class="line"><span class="comment">//   * len(children) == 0, len(items) unconstrained</span></span><br><span class="line"><span class="comment">//   * len(children) == len(items) + 1</span></span><br><span class="line"><span class="keyword">type</span> node <span class="keyword">struct</span> &#123;</span><br><span class="line">	items    items</span><br><span class="line">	children children</span><br><span class="line">	cow      *copyOnWriteContext</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// BTree is an implementation of a B-Tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// BTree stores Item instances in an ordered structure, allowing easy insertion,</span></span><br><span class="line"><span class="comment">// removal, and iteration.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Write operations are not safe for concurrent mutation by multiple</span></span><br><span class="line"><span class="comment">// goroutines, but Read operations are.</span></span><br><span class="line"><span class="keyword">type</span> BTree <span class="keyword">struct</span> &#123;</span><br><span class="line">	degree <span class="keyword">int</span></span><br><span class="line">	length <span class="keyword">int</span></span><br><span class="line">	root   *node</span><br><span class="line">	cow    *copyOnWriteContext</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>node是Btree中的一个节点。</p>
+<p>items 表示key的列表， items中的gap对应一个children node。</p>
+<p>###BTree Struct</p>
+<h4 id="方法介绍："><a href="#方法介绍：" class="headerlink" title="方法介绍："></a>方法介绍：</h4><p><code>maxItems</code> degree * 2 -1 ，每个node中，items的最大值。</p>
+<p><code>minItems</code>degree - 1，node中，items的最小值。</p>
+<p>###Btree and B+tree</p>
+<p>Btree:</p>
+<p><img src="image-20180913183329671.png" alt="image-20180913183329671"></p>
+<p>B+tree:</p>
+<p><img src="image-20180913183401336.png" alt="image-20180913183401336"></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/BTreeStruct/" data-id="cjos8tzgk0004rkwkf1re28at" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-hystrix" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/hystrix/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/hystrix/">Hystrix简介</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Hystrix"><a href="#Hystrix" class="headerlink" title="Hystrix"></a>Hystrix</h1><p>## </p>
+<h2 id="Command模式解决什么问题"><a href="#Command模式解决什么问题" class="headerlink" title="Command模式解决什么问题"></a>Command模式解决什么问题</h2><p>What solution does the Command design pattern describe?</p>
+<ul>
+<li>Define separate (command) objects that encapsulate a request.</li>
+<li>A class delegates a request to a command object instead of implementing a particular request directly.</li>
+</ul>
+<p>What problems can the Command design pattern solve?  </p>
+<ul>
+<li>Coupling the invoker of a request to a particular request should be avoided. That is, hard-wired requests should be avoided.</li>
+<li>It should be possible to configure an object (that invokes a request) with a request.</li>
+</ul>
+<p>Implementing (hard-wiring) a request directly into a class is inflexible because it couples the class to a particular request at compile-time, which makes it impossible to specify a request at run-time.</p>
+<p>总结：Hystrix的command模式带来的好处是在运行时，可以动态切换对某个client的方法的实现。（fallback）</p>
+<h2 id="Hystrix的设计原则"><a href="#Hystrix的设计原则" class="headerlink" title="Hystrix的设计原则"></a>Hystrix的设计原则</h2><ul>
+<li>防止任何单个依赖项用尽所有容器（例如Tomcat）用户线程。</li>
+<li>甩负荷（Shedding load）并快速失败而不是排队。</li>
+<li>在可行的地方提供fallback以保护用户免于失败。</li>
+<li>使用隔离技术来限制任何一个依赖项的影响。</li>
+<li>通过近实时指标，监控和警报优化问题发现时间。</li>
+</ul>
+<h2 id="执行流程"><a href="#执行流程" class="headerlink" title="执行流程"></a>执行流程</h2><p><img src="hystrix-command-flow-chart.png" alt="hystrix-command-flow-chart"></p>
+<p>有4种方式可以执行一个command：</p>
+<ul>
+<li><p>同步执行</p>
+<p>execute()— 阻塞式调用，返回一个单个的response。当调用execute()实际上会调用queue().get()</p>
+</li>
+<li><p>异步执行</p>
+<p>queue() — 返回一个Future，用这个Future可以获取一个单个的response。实际会调用toObservable().toBlocking().toFuture()</p>
+</li>
+<li><p>响应式执行（hot）</p>
+<p>observe()— 返回一个Observable，并且立刻订阅。 实际会调用 toObservable().subscribe(subject)</p>
+</li>
+<li><p>响应式执行 （cold）</p>
+<p>toObservable()— 返回一个Observable，当被订阅的时候，才开始执行指令。</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">K             value   = command.execute();</span><br><span class="line">Future&lt;K&gt;     fValue  = command.queue();</span><br><span class="line">Observable&lt;K&gt; ohValue = command.observe();         <span class="comment">//hot observable</span></span><br><span class="line">Observable&lt;K&gt; ocValue = command.toObservable();    <span class="comment">//cold observable</span></span><br></pre></td></tr></table></figure>
+<h3 id="注解方式"><a href="#注解方式" class="headerlink" title="注解方式"></a>注解方式</h3><ul>
+<li>同步执行</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@HystrixCommand</span> <span class="comment">//execute()</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> User <span class="title">getUserById</span><span class="params">(String id)</span> </span>&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>异步执行</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@HystrixCommand</span> <span class="comment">//queue()</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Future&lt;User&gt; <span class="title">getUserByIdAsync</span><span class="params">(<span class="keyword">final</span> String id)</span> </span>&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>响应式执行</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@HystrixCommand</span>（observableExecutionMode = EAGER）<span class="comment">//observable()</span></span><br><span class="line"><span class="comment">//or</span></span><br><span class="line"><span class="meta">@HystrixCommand</span>（observableExecutionMode = LAZY）<span class="comment">//toObservable()</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Observable&lt;User&gt; <span class="title">getUserById</span><span class="params">(<span class="keyword">final</span> String id)</span> </span>&#123;</span><br><span class="line">     <span class="keyword">return</span> Observable.create(<span class="keyword">new</span> Observable.OnSubscribe&lt;User&gt;() &#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">call</span><span class="params">(Subscriber&lt;? <span class="keyword">super</span> User&gt; observer)</span> </span>&#123;</span><br><span class="line">                    <span class="keyword">try</span> &#123;</span><br><span class="line">                        <span class="keyword">if</span> (!observer.isUnsubscribed()) &#123;</span><br><span class="line">                            observer.onNext(<span class="keyword">new</span> User(id, name + id));</span><br><span class="line">                            observer.onCompleted();</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                        observer.onError(e);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">      &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="隔离"><a href="#隔离" class="headerlink" title="隔离"></a>隔离</h2><h3 id="Thread-pool"><a href="#Thread-pool" class="headerlink" title="Thread pool"></a>Thread pool</h3><p>好处：安全，能够将client看作黑盒。</p>
+<p>坏处：耗时增加，每一个command的执行都要经历queueing, scheduling和线程切换。</p>
+<h3 id="Semaphores"><a href="#Semaphores" class="headerlink" title="Semaphores"></a>Semaphores</h3><p>好处：没有额外的消耗</p>
+<p>坏处：因为无法主动中断，必须完全相信client能够快速失败。</p>
+<h2 id="Sequence-Diagram"><a href="#Sequence-Diagram" class="headerlink" title="Sequence Diagram"></a>Sequence Diagram</h2><p>@adrianb11 has kindly provided a <a href="https://design.codelytics.io/hystrix/how-it-works" target="_blank" rel="noopener">sequence diagram</a> demonstrating the above flows</p>
+<h2 id="Hystrix-参数调整"><a href="#Hystrix-参数调整" class="headerlink" title="Hystrix 参数调整"></a>Hystrix 参数调整</h2><p><img src="thread-configuration-1280.png" alt="thread-configuration-1280"></p>
+<h3 id="Timeout"><a href="#Timeout" class="headerlink" title="Timeout"></a>Timeout</h3><ul>
+<li><p>用接近99.5线的值来设置Thread Timeout。</p>
+</li>
+<li><p>如果容许重试的话，Thread Timeout和NetworkTimeout要配合起来，留够一次retry的时间：</p>
+<pre><code>ThreadTimeout &gt;（NetworkTimeOut + retry的预估用时）
+</code></pre></li>
+<li><p>NetworkTimeout的一般被设置为在网络层可以拦截最耗时的1%的请求。</p>
+</li>
+</ul>
+<h3 id="ThreadPool"><a href="#ThreadPool" class="headerlink" title="ThreadPool"></a>ThreadPool</h3><ul>
+<li>线程池大小 = 每秒请求数*99线的响应时间（以秒为单位）</li>
+</ul>
+<p>queued + poolSize = 并发数</p>
+<p>队列过长，会导致响应时间增加。</p>
+<p>Hystrxi的treahdpool的配置和java的线程池一样。</p>
+<p>Metrix</p>
+<p>Metric</p>
+<h2 id="Metric"><a href="#Metric" class="headerlink" title="Metric"></a>Metric</h2><p>参考：</p>
+<p><a href="https://blog.csdn.net/xiaojia1100/article/details/65631778" target="_blank" rel="noopener">https://blog.csdn.net/xiaojia1100/article/details/65631778</a></p>
+<p><a href="https://en.wikipedia.org/wiki/Command_pattern" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Command_pattern</a></p>
+<p><a href="https://github.com/Netflix/Hystrix/wiki" target="_blank" rel="noopener">https://github.com/Netflix/Hystrix/wiki</a></p>
+<p><a href="https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html" target="_blank" rel="noopener">https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/hystrix/" data-id="cjos8tzgz000hrkwks46ijgtv" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-consul-simple" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/consul-simple/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/consul-simple/">Consul简介</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Consul"><a href="#Consul" class="headerlink" title="Consul"></a>Consul</h1><h3 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h3><p><strong>10,000 foot view</strong></p>
+<p><img src="consul-arch-420ce04a.png" alt="consul-arch-420ce04a"></p>
+<ul>
+<li>Agent </li>
+</ul>
+<p>Agent是在consul集群上一直运行的后台进程，通过 “consul agent” 启动，可以以两种方式运行：客户端，服务器。上图的每个长方形就是一个Agent。</p>
+<ul>
+<li>Client </li>
+</ul>
+<p>表示Agentl的客户端模式（紫色方块）。是consul节点的一种模式，这种模式下，所有注册到当前节点的服务会被转发到SERVER，本身是<strong>不持久化</strong>这些信息。</p>
+<ul>
+<li>Server</li>
+</ul>
+<p>SERVER表示consul的服务器模式（红色方块）。表明这个consul是个server，这种模式下，功能和CLIENT都一样，唯一不同的是，它会把所有的信息<strong>持久化</strong>的本地，这样遇到故障，信息是可以被保留的。</p>
+<ul>
+<li>Server-Leader</li>
+</ul>
+<p>它和其它SERVER不一样的一点是（红色方块，带LEADER字样的），它需要负责同步注册的信息给其它的SERVER，同时也要负责各个节点的健康监测。</p>
+<ul>
+<li><p>DateCenter</p>
+<p>在consul中，datacenter被定义为：私有，低延迟，高带宽。所以不会跨公网的情况。</p>
+</li>
+</ul>
+<h4 id="server-和client"><a href="#server-和client" class="headerlink" title="server 和client"></a>server 和client</h4><p>还是看下上面的图， 图中有2个数据中心。consul是支持</p>
+<pre><code>**多数据中心**
+</code></pre><p>的。每个DataCenter 包含多个 server 和client， 但是server 可能只有 3到5个，多了的话可能会变慢。因为server间要保持一致性。client没有这样的限制，他们可以成千上万。</p>
+<h4 id="LAN-Gossip-Pool"><a href="#LAN-Gossip-Pool" class="headerlink" title="LAN Gossip Pool"></a>LAN Gossip Pool</h4><p>数据中心中所有的节点，都在一个 gossip protocol中，有2个目的：</p>
+<p>1 新增的节点可以被自动发现。</p>
+<p>2 失效节点的检测是分布式的。（这里可以看下gossip的实现）</p>
+<h4 id="server-leader-的特殊职责"><a href="#server-leader-的特殊职责" class="headerlink" title="server-leader 的特殊职责"></a>server-leader 的特殊职责</h4><p>leader负责处理所有请求和事务。非leader的sercer收到rpc请求的时候，会把它转给leader。</p>
+<h4 id="WAN-gossip-pool"><a href="#WAN-gossip-pool" class="headerlink" title="WAN gossip pool"></a>WAN gossip pool</h4><p>所有DataCenter的server同时也是WAN gossip pool的一部分。与LAN Gossip Pool不同的是： 对公网的高延迟做了优化。</p>
+<p>带来的好处：DataCenter之间可以互相发现，新增一个DateCenter会很简单，join进来就可以。</p>
+<pre><code>同时支持了跨DC的RPC调用，在 failure detection，connection cache，multiplexing等技术的应用，跨DC的调用也不是很慢。
+</code></pre><p>问题： 跨DC调用是可以的，但是数据可能是按DC分片的，怎么解决？</p>
+<p>答： There are some special situations where a limited subset of data can be replicated, such as with Consul’s built-in <a href="https://www.consul.io/docs/guides/acl.html#outages-and-acl-replication" target="_blank" rel="noopener">ACL replication</a> capability, or external tools like <a href="https://github.com/hashicorp/consul-replicate" target="_blank" rel="noopener">consul-replicate</a>.</p>
+<h3 id="一致性"><a href="#一致性" class="headerlink" title="一致性"></a>一致性</h3><h4 id="Raft-in-Consul"><a href="#Raft-in-Consul" class="headerlink" title="Raft in Consul"></a>Raft in Consul</h4><p>只有server节点参与Raft。</p>
+<p>Raft 主要被分成了<code>领导人选举</code>，<code>日志复制</code>和<code>安全</code>三个模块</p>
+<ul>
+<li><strong>领导选举</strong>：一个新的领导人需要被选举出来，当现存的领导人宕机的时候</li>
+<li><strong>日志复制</strong>：领导人必须从客户端接收日志然后复制到集群中的其他节点，并且强制要求其他节点的日志保持和自己相同。</li>
+<li><strong>安全性</strong>：在 Raft 中安全性的关键是在图 3 中展示的状态机安全：如果有任何的服务器节点已经应用了一个确定的日志条目到它的状态机中，那么其他服务器节点不能在同一个日志索引位置应用一个不同的指令。 </li>
+</ul>
+<p>任期在 Raft 算法中充当逻辑时钟的作用</p>
+<p>两种类型的 RPCs。</p>
+<ul>
+<li>请求投票（RequestVote） RPCs 由候选人在选举期间发起 ，</li>
+<li>然后附加条目（AppendEntries）RPCs 由领导人发起，用来复制日志和提供一种心跳机制</li>
+</ul>
+<p>领导者周期性的向所有跟随者发送心跳包来维持自己的权威</p>
+<p>###复制状态机</p>
+<p>复制状态机通常都是基于复制日志实现的，如图 1。每一个服务器存储一个包含一系列指令的日志，并且按照日志的顺序进行执行。每一个日志都按照相同的顺序包含相同的指令，所以每一个服务器都执行相同的指令序列。因为每个状态机都是确定的，每一次执行操作都产生相同的状态和同样的序列。</p>
+<p>保证复制日志相同就是一致性算法的工作了。</p>
+<p><a href="https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md" target="_blank" rel="noopener">https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/consul-simple/" data-id="cjos8tzgx000frkwk31f6p930" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-JVM_gc_cms" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/JVM_gc_cms/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/JVM_gc_cms/">JVM GC CMS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>#CMS</p>
+<p>全称 <code>Concurrent Mark Sweep</code></p>
+<p>本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。</p>
+<p>阶段：</p>
+<ul>
+<li><p>初始标记 <strong>Initial Mark</strong>（STW）</p>
+<p>标记GC ROOT和年轻代对象能<strong>直接关联</strong>到的对象。</p>
+<p><img src="/images/g1-06.png" alt="CMS initial mark"></p>
+</li>
+<li><p>并发标记</p>
+<p>由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记</p>
+</li>
+<li><p>并发预清理 <strong>Concurrent Preclean</strong></p>
+<p>JVM将包含变异对象的堆区域（称为“Card”）标记为“脏”</p>
+<p><img src="g1-08.png" alt="g1-08"></p>
+</li>
+<li><p><strong>Concurrent Abortable Preclean</strong></p>
+<p>？？</p>
+</li>
+<li><p><strong>Final Remark </strong>（STW）</p>
+<p>最终标记所有的老年代的存活对象。</p>
+</li>
+<li><p><strong>Concurrent Sweep</strong></p>
+<p>删除未标记的对象并回收它们占用的空间。</p>
+</li>
+</ul>
+<p>###安全点（safepoint）</p>
+<p>程序只有在运行到安全点的时候，才可以暂停下来。<code>HotSpot</code>采用主动中断的方式，让执行线程在运行期轮询是否需要暂停的标志，若需要则中断挂起。</p>
+<h3 id="可达性"><a href="#可达性" class="headerlink" title="可达性"></a>可达性</h3><p>1.本身是根对象。根（root）是指由堆以外空间访问的对象。JVM会将以下对象标记为根：</p>
+<p>a.虚拟机栈（栈帧中的本地变量表）中引用的对象；</p>
+<p>b.方法区中的类静态属性引用的对象；</p>
+<p>c.方法区中的常量引用的对象；</p>
+<p>d.本地方法栈中JNI的引用对象。</p>
+<p>2.被一个可达的对象引用。</p>
+<p>参考：<a href="https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep" target="_blank" rel="noopener">https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/JVM_gc_cms/" data-id="cjos8tzgr0008rkwkfwb9a47y" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Histograms" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/09/Histograms/" class="article-date">
+  <time datetime="2018-11-08T16:00:00.000Z" itemprop="datePublished">2018-11-09</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/09/Histograms/">Histograms</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>A <code>Histogram</code> measures the distribution of values in a stream of data</p>
 <p>直方图描述数据流中的数据分布情况。</p>
 <p>直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。</p>
 <p>计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。</p>
@@ -179,7 +642,7 @@
 <p>在一个给定长度的数组中随机等概率抽取一个数据很容易，但如果面对的是长度未知的海量数据流呢？蓄水池采样(Reservoir Sampling)算法就是来解决这个问题的, 它在分析一些大数据集的时候非常有用。 </p>
 <p>先把读到的前k个对象放入“水库”，对于第k+1个对象开始，以k/(k+1)的概率选择该对象，以k/(k+2)的概率选择第k+2个对象，以此类推，以k/m的概率选择第m个对象（m&gt;k）。如果m被选中，则随机替换水库中的一个对象。最终每个对象被选中的概率均为k/n，证明如下</p>
 <p>第m个对象被选中的概率=选择m的概率 x（其后元素不被选择的概率+其后元素被选择的概率 x 不替换第m个对象的概率），即</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/1338455236_7354.png" alt="1338455236_7354"></p>
+<p><img src="1338455236_7354.png" alt="1338455236_7354"></p>
 </blockquote>
 <ul>
 <li><p>Uniform Reservoirs</p>
@@ -211,11 +674,179 @@
 <p>HdrHistogram（高动态范围直方图）是一种无损直方图实现，具有可配置的值精度，可解决EDR的缺点。 </p>
 </blockquote>
 <h2 id="HdrHistogram"><a href="#HdrHistogram" class="headerlink" title="HdrHistogram"></a>HdrHistogram</h2><p>//TODO</p>
+<hr>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/2018-11-9-Histograms/" data-id="cjos04qe20000cfwkos77c5vj" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/09/Histograms/" data-id="cjos8tzgq0007rkwk8xzb5jc9" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-Observable_basic" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/09/Observable_basic/" class="article-date">
+  <time datetime="2018-11-08T16:00:00.000Z" itemprop="datePublished">2018-11-09</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/09/Observable_basic/">ReactiveX基础</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>#Observable基础：</p>
+<p>基本的类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Observable</span>&lt;<span class="title">T</span>&gt; </span>&#123;</span><br><span class="line">    <span class="keyword">final</span> OnSubscribe&lt;T&gt; onSubscribe;</span><br><span class="line">    <span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">OnSubscribe</span>&lt;<span class="title">T</span>&gt; <span class="keyword">extends</span> <span class="title">Action1</span>&lt;<span class="title">Subscriber</span>&lt;? <span class="title">super</span> <span class="title">T</span>&gt;&gt; </span>&#123;</span><br><span class="line">           <span class="comment">// cover for generics insanity</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Action1</span>&lt;<span class="title">T</span>&gt; <span class="keyword">extends</span> <span class="title">Action</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">call</span><span class="params">(T t)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>例子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//给Observable的onSubscribe赋值了我们定义的OnSubscribe对象</span></span><br><span class="line">Observable.create(<span class="keyword">new</span> Observable.OnSubscribe&lt;String&gt;() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">call</span><span class="params">(Subscriber&lt;? <span class="keyword">super</span> String&gt; subscriber)</span> </span>&#123;</span><br><span class="line">        subscriber.onNext(<span class="string">"hello"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;)</span><br><span class="line">    <span class="comment">//subscribe这个函数做了什么事?</span></span><br><span class="line">    <span class="comment">//调用Observable中的OnSubscribe对象的call方法，以下面的Subscriber对象作为参数。</span></span><br><span class="line">    .subscribe(<span class="keyword">new</span> Subscriber&lt;String&gt;() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onCompleted</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onError</span><span class="params">(Throwable e)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onNext</span><span class="params">(String s)</span> </span>&#123;</span><br><span class="line">        Log.d(<span class="string">"rx"</span>, s);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/09/Observable_basic/" data-id="cjos8tzgw000erkwkmw26wuty" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-BFS_and_DFS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/BFS_and_DFS/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/10/30/BFS_and_DFS/">BFS and DFS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="如何表示一个图"><a href="#如何表示一个图" class="headerlink" title="如何表示一个图"></a>如何表示一个图</h2><p><strong>临接列表</strong>(adjacency lists)和<strong>临接矩阵</strong>(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。</p>
+<h3 id="广度优先搜索-Breadth-first-search"><a href="#广度优先搜索-Breadth-first-search" class="headerlink" title="广度优先搜索 Breadth-first search"></a>广度优先搜索 Breadth-first search</h3><p>最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shortest-paths)都使用了这个想法。</p>
+<p>广度优先搜索在进一步遍历图中顶点之前，先访问当前顶点的所有邻接结点。  </p>
+<p>a .首先选择一个顶点作为起始结点，并将其染成灰色，其余结点为白色。 </p>
+<p>b. 将起始结点放入队列中。  </p>
+<p>c. 从队列首部选出一个顶点，并找出所有与之邻接的结点，将找到的邻接结点放入队列尾部，将已访问过结点涂成黑色，没访问过的结点是白色。如果顶点的颜色是灰色，表示已经发现并且放入了队列，如果顶点的颜色是白色，表示还没有发现  </p>
+<p>d. 按照同样的方法处理队列中的下一个结点。  基本就是出队的顶点变成黑色，在队列里的是灰色，还没入队的是白色。 </p>
+<p>算法导论中的伪代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//图G，从s开始广度优先遍历</span></span><br><span class="line">BFS(G, s)</span><br><span class="line">  <span class="comment">//初始化s之外的所有其他节点</span></span><br><span class="line">  <span class="keyword">for</span> s 以外的所有定点 u:</span><br><span class="line">    u.color = WHITE</span><br><span class="line">    u.d = -<span class="number">1</span></span><br><span class="line">    u.p = NIL <span class="comment">//p代表父节点</span></span><br><span class="line">  <span class="comment">//初始化s</span></span><br><span class="line">  s.color = GRAY</span><br><span class="line">  s.d = <span class="number">0</span></span><br><span class="line">  s.p = NIL</span><br><span class="line">  enqueue(s)</span><br><span class="line">  <span class="keyword">while</span> (u = dequeue()) != NIL</span><br><span class="line">    <span class="keyword">for</span> v in u的所有临接节点:</span><br><span class="line">      <span class="keyword">if</span> v.color == WHITE</span><br><span class="line">        v.color = GRAY <span class="comment">//入队列前设置为灰</span></span><br><span class="line">        v.d = u.d + <span class="number">1</span></span><br><span class="line">        v.p = u</span><br><span class="line">        enqueue(v)</span><br><span class="line">     u.color = BLACK <span class="comment">//访问过的设置为黑</span></span><br></pre></td></tr></table></figure>
+<p>因为每个节点都入队一次，而且，每个节点出来之后，都会对他的临接节点进行访问。所有 最后的时间复杂度为O(E+V)</p>
+<p>在《算法》中，使用marked[]来代替对节点上色，用edgeTo[]代替父节点</p>
+<p>参考：<a href="https://www.cnblogs.com/xiehongfeng100/p/4461772.html" target="_blank" rel="noopener">https://www.cnblogs.com/xiehongfeng100/p/4461772.html</a></p>
+<h3 id="深度优先搜索-Depth-first-seatch"><a href="#深度优先搜索-Depth-first-seatch" class="headerlink" title="深度优先搜索 Depth-first-seatch"></a>深度优先搜索 Depth-first-seatch</h3><p>深度优先搜索在搜索过程中访问某个顶点后，需要递归地访问此顶点的所有未访问过的相邻顶点。  </p>
+<p>初始条件下所有节点为白色，选择一个作为起始顶点，按照如下步骤遍历：</p>
+<p>a. 选择起始顶点涂成灰色，表示还未访问  </p>
+<p>b. 从该顶点的邻接顶点中选择一个，继续这个过程（即再寻找邻接结点的邻接结点），一直深入下去，直到一个顶点没有邻接结点了，涂黑它，表示访问过了  </p>
+<p>c. 回溯到这个涂黑顶点的上一层顶点，再找这个上一层顶点的其余邻接结点，继续如上操作，如果所有邻接结点往下都访问过了，就把自己涂黑，再回溯到更上一层。  </p>
+<p>d. 上一层继续做如上操作，知道所有顶点都访问过。 </p>
+<p>算法导论中的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">DFS(G)</span><br><span class="line">    <span class="comment">//对所有节点做初始化</span></span><br><span class="line">	<span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">    	u.color = WHITE</span><br><span class="line">        u.p = NIL</span><br><span class="line">    <span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">		<span class="keyword">if</span> u.color == WHITE</span><br><span class="line">			DFS-Visit(G,u)  </span><br><span class="line">            </span><br><span class="line">GFS-Visit(G,u)</span><br><span class="line">    <span class="comment">//先设置为灰色</span></span><br><span class="line">	u.color = GRAY</span><br><span class="line">	<span class="comment">//尝试所有的临接节点，</span></span><br><span class="line">	<span class="keyword">for</span> v in u的临接节点： <span class="comment">//adj[v]次</span></span><br><span class="line">		<span class="keyword">if</span> v.color == WHITE</span><br><span class="line">			v.p = u</span><br><span class="line">			DFS-Visit(G, v)</span><br><span class="line">    <span class="comment">//在自己的所有临接节点都访问完成后，设置为黑色</span></span><br><span class="line">    u.color = BLACK</span><br></pre></td></tr></table></figure>
+<p>DFS的时间复杂度为O(V+E)。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/BFS_and_DFS/" data-id="cjos8tzga0000rkwke4eozcsj" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-rocketmq_design" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/rocketmq_design/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/10/30/rocketmq_design/">rocketMQ design</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="Motivation"><a href="#Motivation" class="headerlink" title="Motivation"></a>Motivation</h3><h3 id="Persistence"><a href="#Persistence" class="headerlink" title="Persistence"></a>Persistence</h3><p>和kafka的思想一样，利用顺序IO。</p>
+<p>但是，当一个broker上有多个partition的时候，顺序又变成了随机。</p>
+<p>RocketMQ为了解决这个问题，采用了单一的日志文件。即把一台机器上的所有的topic的所有queue的消息都存放在同一个文件里面。</p>
+<p>先写入Commit log文件里面（单个文件），然后有后台线程异步的同步到ConsumeQueue（也是一个文件），再由Consumer进行消费。这是RocketMQ的方案。</p>
+<h3 id="4-2-Persistence"><a href="#4-2-Persistence" class="headerlink" title="4.2 Persistence"></a><a href="https://kafka.apache.org/documentation.html#persistence" target="_blank" rel="noopener">4.2 Persistence</a></h3><blockquote>
+<p>As a result the performance of linear writes on a <a href="http://en.wikipedia.org/wiki/Non-RAID_drive_architectures" target="_blank" rel="noopener">JBOD</a> configuration with six 7200rpm SATA RAID-5 array is about 600MB/sec but the performance of random writes is only about 100k/sec—a difference of over 6000X.</p>
+</blockquote>
+<p>磁盘的顺序写和随机写，性能相差6000倍，<a href="http://deliveryimages.acm.org/10.1145/1570000/1563874/jacobs3.jpg" target="_blank" rel="noopener">sequential disk access can in some cases be faster than random memory access!</a></p>
+<ul>
+<li><p>OS pagecache</p>
+<p>现代操作系统很乐于使用所有的空闲内存来做disk caching。所有的磁盘读写都会通过这些cache进行。</p>
+</li>
+<li><p>Furthermore, we are building on top of the JVM, and anyone who has spent any time with Java memory usage knows two things:</p>
+<pre><code> The memory overhead of objects is very high, often doubling the size of the data stored (or worse).
+
+Java garbage collection becomes increasingly fiddly and slow as the in-heap data increases.
+</code></pre></li>
+</ul>
+<p>基于上面的两个原因， 得出的结论：</p>
+<blockquote>
+<p>using the filesystem and relying on pagecache is superior to maintaining an in-memory cache</p>
+</blockquote>
+<p>直接使用带pagecache的OS filesystem 甚至性能会比使用内存cache要更好。</p>
+<p>This style of pagecache-centric design is described in an <a href="http://varnish-cache.org/wiki/ArchitectNotes" target="_blank" rel="noopener">article</a> on the design of Varnish</p>
+<h3 id="4-3-Efficiency"><a href="#4-3-Efficiency" class="headerlink" title="4.3 Efficiency"></a><a href="https://kafka.apache.org/documentation.html#maximizingefficiency" target="_blank" rel="noopener">4.3 Efficiency</a></h3><p>For more background on the sendfile and zero-copy support in Java, see this <a href="http://www.ibm.com/developerworks/linux/library/j-zerocopy" target="_blank" rel="noopener">article</a>. </p>
+<h3 id="4-4-The-Producer"><a href="#4-4-The-Producer" class="headerlink" title="4.4 The Producer"></a><a href="https://kafka.apache.org/documentation.html#theproducer" target="_blank" rel="noopener">4.4 The Producer</a></h3><p>任意一个broker都保存着metadate，关于哪些节点是活着的，还有一个topic的partition的leader是谁？所以producer可以找到对应的leader，直接向其发送消息。</p>
+<h3 id="4-5-The-Consumer"><a href="#4-5-The-Consumer" class="headerlink" title="4.5 The Consumer"></a><a href="https://kafka.apache.org/documentation.html#theconsumer" target="_blank" rel="noopener">4.5 The Consumer</a></h3><p>consumer执行‘fetch’操作，同时带着offset，来向leader拉去消息。</p>
+<p>offset：</p>
+<p>一般的队列都会在broker端记录consumer消费的位置，这样做可以及时的删除消费掉的消息，但是维护这个位置是很费事的，还需要consumer返回ack。</p>
+<p>kafka也会记录一个offset，表示下一个可以消费的消息的位置，而且可以‘倒带’，即重现消费之前消费过的消息。</p>
+<h3 id="4-6-Message-Delivery-Semantics"><a href="#4-6-Message-Delivery-Semantics" class="headerlink" title="4.6 Message Delivery Semantics"></a><a href="https://kafka.apache.org/documentation.html#semantics" target="_blank" rel="noopener">4.6 Message Delivery Semantics</a></h3><h3 id="4-7-Replication"><a href="#4-7-Replication" class="headerlink" title="4.7 Replication"></a><a href="https://kafka.apache.org/documentation.html#replication" target="_blank" rel="noopener">4.7 Replication</a></h3><ul>
+<li></li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/rocketmq_design/" data-id="cjos8tzh0000irkwk2nq0iel8" class="article-share-link">Share</a>
       
       
     </footer>
@@ -226,6 +857,11 @@
 
   
 
+
+  <nav id="page-nav">
+    
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/2/">Next &raquo;</a>
+  </nav>
 
 </section>
         
@@ -243,7 +879,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
     </div>
   </div>
 
@@ -256,11 +892,23 @@
       <ul>
         
           <li>
-            <a href="/2018/11/22/2018-04-20-Java_NIO/">(no title)</a>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
           </li>
         
           <li>
-            <a href="/2018/11/22/2018-11-9-Histograms/">(no title)</a>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
           </li>
         
       </ul>

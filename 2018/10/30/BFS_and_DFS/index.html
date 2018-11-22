@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>BFS and DFS | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="如何表示一个图临接列表(adjacency lists)和临接矩阵(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。 广度优先搜索 Breadth-first search最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shor">
+<meta property="og:type" content="article">
+<meta property="og:title" content="BFS and DFS">
+<meta property="og:url" content="http://yoursite.com/2018/10/30/BFS_and_DFS/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="如何表示一个图临接列表(adjacency lists)和临接矩阵(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。 广度优先搜索 Breadth-first search最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shor">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:47:06.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="BFS and DFS">
+<meta name="twitter:description" content="如何表示一个图临接列表(adjacency lists)和临接矩阵(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。 广度优先搜索 Breadth-first search最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shor">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-BFS_and_DFS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/BFS_and_DFS/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      BFS and DFS
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="如何表示一个图"><a href="#如何表示一个图" class="headerlink" title="如何表示一个图"></a>如何表示一个图</h2><p><strong>临接列表</strong>(adjacency lists)和<strong>临接矩阵</strong>(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。</p>
+<h3 id="广度优先搜索-Breadth-first-search"><a href="#广度优先搜索-Breadth-first-search" class="headerlink" title="广度优先搜索 Breadth-first search"></a>广度优先搜索 Breadth-first search</h3><p>最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shortest-paths)都使用了这个想法。</p>
+<p>广度优先搜索在进一步遍历图中顶点之前，先访问当前顶点的所有邻接结点。  </p>
+<p>a .首先选择一个顶点作为起始结点，并将其染成灰色，其余结点为白色。 </p>
+<p>b. 将起始结点放入队列中。  </p>
+<p>c. 从队列首部选出一个顶点，并找出所有与之邻接的结点，将找到的邻接结点放入队列尾部，将已访问过结点涂成黑色，没访问过的结点是白色。如果顶点的颜色是灰色，表示已经发现并且放入了队列，如果顶点的颜色是白色，表示还没有发现  </p>
+<p>d. 按照同样的方法处理队列中的下一个结点。  基本就是出队的顶点变成黑色，在队列里的是灰色，还没入队的是白色。 </p>
+<p>算法导论中的伪代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//图G，从s开始广度优先遍历</span></span><br><span class="line">BFS(G, s)</span><br><span class="line">  <span class="comment">//初始化s之外的所有其他节点</span></span><br><span class="line">  <span class="keyword">for</span> s 以外的所有定点 u:</span><br><span class="line">    u.color = WHITE</span><br><span class="line">    u.d = -<span class="number">1</span></span><br><span class="line">    u.p = NIL <span class="comment">//p代表父节点</span></span><br><span class="line">  <span class="comment">//初始化s</span></span><br><span class="line">  s.color = GRAY</span><br><span class="line">  s.d = <span class="number">0</span></span><br><span class="line">  s.p = NIL</span><br><span class="line">  enqueue(s)</span><br><span class="line">  <span class="keyword">while</span> (u = dequeue()) != NIL</span><br><span class="line">    <span class="keyword">for</span> v in u的所有临接节点:</span><br><span class="line">      <span class="keyword">if</span> v.color == WHITE</span><br><span class="line">        v.color = GRAY <span class="comment">//入队列前设置为灰</span></span><br><span class="line">        v.d = u.d + <span class="number">1</span></span><br><span class="line">        v.p = u</span><br><span class="line">        enqueue(v)</span><br><span class="line">     u.color = BLACK <span class="comment">//访问过的设置为黑</span></span><br></pre></td></tr></table></figure>
+<p>因为每个节点都入队一次，而且，每个节点出来之后，都会对他的临接节点进行访问。所有 最后的时间复杂度为O(E+V)</p>
+<p>在《算法》中，使用marked[]来代替对节点上色，用edgeTo[]代替父节点</p>
+<p>参考：<a href="https://www.cnblogs.com/xiehongfeng100/p/4461772.html" target="_blank" rel="noopener">https://www.cnblogs.com/xiehongfeng100/p/4461772.html</a></p>
+<h3 id="深度优先搜索-Depth-first-seatch"><a href="#深度优先搜索-Depth-first-seatch" class="headerlink" title="深度优先搜索 Depth-first-seatch"></a>深度优先搜索 Depth-first-seatch</h3><p>深度优先搜索在搜索过程中访问某个顶点后，需要递归地访问此顶点的所有未访问过的相邻顶点。  </p>
+<p>初始条件下所有节点为白色，选择一个作为起始顶点，按照如下步骤遍历：</p>
+<p>a. 选择起始顶点涂成灰色，表示还未访问  </p>
+<p>b. 从该顶点的邻接顶点中选择一个，继续这个过程（即再寻找邻接结点的邻接结点），一直深入下去，直到一个顶点没有邻接结点了，涂黑它，表示访问过了  </p>
+<p>c. 回溯到这个涂黑顶点的上一层顶点，再找这个上一层顶点的其余邻接结点，继续如上操作，如果所有邻接结点往下都访问过了，就把自己涂黑，再回溯到更上一层。  </p>
+<p>d. 上一层继续做如上操作，知道所有顶点都访问过。 </p>
+<p>算法导论中的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">DFS(G)</span><br><span class="line">    <span class="comment">//对所有节点做初始化</span></span><br><span class="line">	<span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">    	u.color = WHITE</span><br><span class="line">        u.p = NIL</span><br><span class="line">    <span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">		<span class="keyword">if</span> u.color == WHITE</span><br><span class="line">			DFS-Visit(G,u)  </span><br><span class="line">            </span><br><span class="line">GFS-Visit(G,u)</span><br><span class="line">    <span class="comment">//先设置为灰色</span></span><br><span class="line">	u.color = GRAY</span><br><span class="line">	<span class="comment">//尝试所有的临接节点，</span></span><br><span class="line">	<span class="keyword">for</span> v in u的临接节点： <span class="comment">//adj[v]次</span></span><br><span class="line">		<span class="keyword">if</span> v.color == WHITE</span><br><span class="line">			v.p = u</span><br><span class="line">			DFS-Visit(G, v)</span><br><span class="line">    <span class="comment">//在自己的所有临接节点都访问完成后，设置为黑色</span></span><br><span class="line">    u.color = BLACK</span><br></pre></td></tr></table></figure>
+<p>DFS的时间复杂度为O(V+E)。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/BFS_and_DFS/" data-id="cjos8tzga0000rkwke4eozcsj" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/11/09/Observable_basic/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          ReactiveX基础
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/10/30/rocketmq_design/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">rocketMQ design</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

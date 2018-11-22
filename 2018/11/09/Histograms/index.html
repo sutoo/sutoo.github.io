@@ -5,21 +5,21 @@
   
 
   
-  <title>Imoko</title>
+  <title>Histograms | Imoko</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="HistogramsA Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个">
+  <meta name="description" content="A Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个开源的Metrics">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Imoko">
-<meta property="og:url" content="http://yoursite.com/2018/11/22/2018-11-9-Histograms/index.html">
+<meta property="og:title" content="Histograms">
+<meta property="og:url" content="http://yoursite.com/2018/11/09/Histograms/index.html">
 <meta property="og:site_name" content="Imoko">
-<meta property="og:description" content="HistogramsA Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个">
+<meta property="og:description" content="A Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个开源的Metrics">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/1338455236_7354.png">
-<meta property="og:updated_time" content="2018-11-22T02:40:59.000Z">
+<meta property="og:image" content="http://yoursite.com/2018/11/09/Histograms/1338455236_7354.png">
+<meta property="og:updated_time" content="2018-11-22T06:43:55.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Imoko">
-<meta name="twitter:description" content="HistogramsA Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个">
-<meta name="twitter:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/1338455236_7354.png">
+<meta name="twitter:title" content="Histograms">
+<meta name="twitter:description" content="A Histogram measures the distribution of values in a stream of data 直方图描述数据流中的数据分布情况。 直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。 计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。 dropwizard一个开源的Metrics">
+<meta name="twitter:image" content="http://yoursite.com/2018/11/09/Histograms/1338455236_7354.png">
   
     <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
   
@@ -66,19 +66,29 @@
   </div>
 </header>
       <div class="outer">
-        <section id="main"><article id="post-2018-11-9-Histograms" class="article article-type-post" itemscope="" itemprop="blogPost">
+        <section id="main"><article id="post-Histograms" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
-    <a href="/2018/11/22/2018-11-9-Histograms/" class="article-date">
-  <time datetime="2018-11-22T02:40:53.000Z" itemprop="datePublished">2018-11-22</time>
+    <a href="/2018/11/09/Histograms/" class="article-date">
+  <time datetime="2018-11-08T16:00:00.000Z" itemprop="datePublished">2018-11-09</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Histograms
+    </h1>
+  
+
+      </header>
+    
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="Histograms"><a href="#Histograms" class="headerlink" title="Histograms"></a>Histograms</h1><p>A <code>Histogram</code> measures the distribution of values in a stream of data</p>
+        <p>A <code>Histogram</code> measures the distribution of values in a stream of data</p>
 <p>直方图描述数据流中的数据分布情况。</p>
 <p>直方图不仅仅能提供最大，最小，平均值，而且可以提供median（中位线）或者99th线。</p>
 <p>计算直方图的基本方法：排序。但是对吞吐量大，低延迟要求的系统，不适用。下面介绍下常用的方法。</p>
@@ -87,7 +97,7 @@
 <p>在一个给定长度的数组中随机等概率抽取一个数据很容易，但如果面对的是长度未知的海量数据流呢？蓄水池采样(Reservoir Sampling)算法就是来解决这个问题的, 它在分析一些大数据集的时候非常有用。 </p>
 <p>先把读到的前k个对象放入“水库”，对于第k+1个对象开始，以k/(k+1)的概率选择该对象，以k/(k+2)的概率选择第k+2个对象，以此类推，以k/m的概率选择第m个对象（m&gt;k）。如果m被选中，则随机替换水库中的一个对象。最终每个对象被选中的概率均为k/n，证明如下</p>
 <p>第m个对象被选中的概率=选择m的概率 x（其后元素不被选择的概率+其后元素被选择的概率 x 不替换第m个对象的概率），即</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/1338455236_7354.png" alt="1338455236_7354"></p>
+<p><img src="1338455236_7354.png" alt="1338455236_7354"></p>
 </blockquote>
 <ul>
 <li><p>Uniform Reservoirs</p>
@@ -119,11 +129,12 @@
 <p>HdrHistogram（高动态范围直方图）是一种无损直方图实现，具有可配置的值精度，可解决EDR的缺点。 </p>
 </blockquote>
 <h2 id="HdrHistogram"><a href="#HdrHistogram" class="headerlink" title="HdrHistogram"></a>HdrHistogram</h2><p>//TODO</p>
+<hr>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/2018-11-9-Histograms/" data-id="cjos04qe20000cfwkos77c5vj" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/09/Histograms/" data-id="cjos8tzgq0007rkwk8xzb5jc9" class="article-share-link">Share</a>
       
       
     </footer>
@@ -132,15 +143,20 @@
     
 <nav id="article-nav">
   
-    <a href="/2018/11/22/2018-04-20-Java_NIO/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2018/11/22/JVM_gc_cms/" id="article-nav-newer" class="article-nav-link-wrap">
       <strong class="article-nav-caption">Newer</strong>
       <div class="article-nav-title">
         
-          (no title)
+          JVM GC CMS
         
       </div>
     </a>
   
+  
+    <a href="/2018/11/09/Observable_basic/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">ReactiveX基础</div>
+    </a>
   
 </nav>
 
@@ -163,7 +179,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
     </div>
   </div>
 
@@ -176,11 +192,23 @@
       <ul>
         
           <li>
-            <a href="/2018/11/22/2018-04-20-Java_NIO/">(no title)</a>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
           </li>
         
           <li>
-            <a href="/2018/11/22/2018-11-9-Histograms/">(no title)</a>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
           </li>
         
       </ul>

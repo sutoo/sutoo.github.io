@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>HTTP 2 | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="http2协议不是为了推翻http1，重新设计，它的目标是为了性能的提升等等，一个最主要的目标是容许用户使用一个连接来访问网站。 http2的官方网站：https://http2.github.io/ RFC 7540https://httpwg.org/specs/rfc7540.html Hypertext Transfer Protocol Version 2 (HTTP/2) 之前： In">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HTTP 2">
+<meta property="og:url" content="http://yoursite.com/2018/07/02/HTTP-2/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="http2协议不是为了推翻http1，重新设计，它的目标是为了性能的提升等等，一个最主要的目标是容许用户使用一个连接来访问网站。 http2的官方网站：https://http2.github.io/ RFC 7540https://httpwg.org/specs/rfc7540.html Hypertext Transfer Protocol Version 2 (HTTP/2) 之前： In">
+<meta property="og:locale" content="default">
+<meta property="og:updated_time" content="2018-11-22T06:35:54.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HTTP 2">
+<meta name="twitter:description" content="http2协议不是为了推翻http1，重新设计，它的目标是为了性能的提升等等，一个最主要的目标是容许用户使用一个连接来访问网站。 http2的官方网站：https://http2.github.io/ RFC 7540https://httpwg.org/specs/rfc7540.html Hypertext Transfer Protocol Version 2 (HTTP/2) 之前： In">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-HTTP-2" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/07/02/HTTP-2/" class="article-date">
+  <time datetime="2018-07-01T16:00:00.000Z" itemprop="datePublished">2018-07-02</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      HTTP 2
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>http2协议不是为了推翻http1，重新设计，它的目标是为了性能的提升等等，一个最主要的目标是容许用户使用一个连接来访问网站。</p>
+<p>http2的官方网站：<a href="https://http2.github.io/" target="_blank" rel="noopener">https://http2.github.io/</a></p>
+<h3 id="RFC-7540"><a href="#RFC-7540" class="headerlink" title="RFC 7540"></a>RFC 7540</h3><p><a href="https://httpwg.org/specs/rfc7540.html" target="_blank" rel="noopener">https://httpwg.org/specs/rfc7540.html</a></p>
+<p>Hypertext Transfer Protocol Version 2 (HTTP/2)</p>
+<p>之前：</p>
+<p>In particular, HTTP/1.0 allowed only one request to be outstanding at a time on a given TCP connection. HTTP/1.1 added request pipelining, but this only partially addressed request concurrency and still suffers from head-of-line blocking. </p>
+<p>Therefore, HTTP/1.0 and HTTP/1.1 clients that need to make many requests use multiple connections to a server in order to achieve concurrency and thereby reduce latency</p>
+<p>Http 头 ：</p>
+<p>1 无法压缩</p>
+<p>2 每次请求都重复传递</p>
+<h4 id="HTTP2-Overview"><a href="#HTTP2-Overview" class="headerlink" title="HTTP2 Overview"></a>HTTP2 Overview</h4><p>http2支持1的所有核心特性，并且更加高效。<strong>Frame</strong>是http2中的最基本的单位。</p>
+<h2 id="Stream"><a href="#Stream" class="headerlink" title="Stream"></a>Stream</h2><p>stream 是一个独立的，双向的Frame的队列，这些frame在server 和client之间通过Http/2 传送。</p>
+<p>stream有以下特性：</p>
+<p>1 一个HTTP/2链接可以包含多个stream</p>
+<p>2 stream可以被client和server创建</p>
+<p>3 stream可以被client和server关闭</p>
+<p>4 frame的顺序很重要</p>
+<p>5 streams 被一个数字唯一标识</p>
+<h3 id="stream的状态"><a href="#stream的状态" class="headerlink" title="stream的状态"></a>stream的状态</h3><h4 id="idle"><a href="#idle" class="headerlink" title="idle"></a>idle</h4><p>所有的stream开始于这个状态。 </p>
+<ul>
+<li>接受或者发出一个  HEADERS frame 会导致这个steam 变成”open” </li>
+<li>向其他的stream发出一个 PUSH_PROMISE frame，本stream会变为”reserved(local)”状态</li>
+<li>从其他的stream收到一个 PUSH_PROMISE frame，本stream会变为”reserved(remote)”状态</li>
+</ul>
+<h4 id="reserved-local-remote"><a href="#reserved-local-remote" class="headerlink" title="reserved(local/remote)"></a>reserved(local/remote)</h4><p>用于实现push，暂时不讨论</p>
+<h4 id="open"><a href="#open" class="headerlink" title="open"></a>open</h4><p>处于这个状态的stream，可以被两方使用，发送各种frames。</p>
+<ul>
+<li>双方都可以发送一个标记了 END_STREAM的frame，来使stream进入”half-closed”状态。发送 END_STREAM的一方，stream进入”half-closed(local)”状态，收到 END_STREAM的一方，stream进入”half-closed(remote)”状态。</li>
+<li>双方也可以发送一个RST_STREAM frame，导致双方进入”closed”状态</li>
+</ul>
+<h4 id="half-closed-local"><a href="#half-closed-local" class="headerlink" title="half-closed(local)"></a>half-closed(local)</h4><p>half-closed(remote)  –END_STREAM flag –&gt; half-close(local) 会是两边都进入“close”状态</p>
+<p>或者收到一个 RST_STREAM ，也会直接进入“close”状态。</p>
+<p>half-closed 有什么用处？</p>
+<h3 id="Stream-Identifiers"><a href="#Stream-Identifiers" class="headerlink" title="Stream Identifiers"></a>Stream Identifiers</h3><p>stream 的标识符是一个31bit的无符号int。client端使用奇数，server端使用偶数。id为0的stream被用来作为控制信息的连接。</p>
+<p>新创建的stream的标号必须比当前endpoint上现有的要大。</p>
+<h3 id="Stream-concurrency"><a href="#Stream-concurrency" class="headerlink" title="Stream concurrency"></a>Stream concurrency</h3><p>TODO</p>
+<h3 id="Flow-Control"><a href="#Flow-Control" class="headerlink" title="Flow Control"></a>Flow Control</h3><p>HTTP/2通过WINDOW_UPDATE frame来支持流量控制。</p>
+<p>HTTP/2“流”的流量控制的目标是：在不改变协议的情况下允许使用多种流量控制算法。</p>
+<p>HTTP/2的流量控制有一下特征：</p>
+<ul>
+<li>流量控制是特定于一个连接的。</li>
+<li>流量控制是基于WINDOW_UPDATE帧的。接收方公布自己打算在每个流以及整个连接上分别接收多少字节。这是一个以<strong>信用</strong>为基础的方案。</li>
+<li>流量控制是有方向的，由接收者全面控制。</li>
+<li>无论是新流还是整个连接，流量控制窗口的初始值是65535字节</li>
+<li>帧的类型决定了流量控制是否适用于帧。目前，只有DATA帧服从流量控制，所有其它类型的帧并不消耗流量控制窗口的空间。这保证了重要的控制帧不会被流量控制阻塞。</li>
+<li>流量控制不能被禁用</li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/07/02/HTTP-2/" data-id="cjos8tzgp0006rkwkjlg7qj00" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/07/15/FeignClient/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          FeignClient
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/05/16/DBs_B+tree/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">B+树</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

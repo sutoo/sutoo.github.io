@@ -5,27 +5,27 @@
   
 
   
-  <title>Imoko</title>
+  <title>Java I/O模型 | Imoko</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="Java I/O模型event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or mor">
+  <meta name="description" content="event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or more I/O cond">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Imoko">
-<meta property="og:url" content="http://yoursite.com/2018/11/22/2018-04-20-Java_NIO/index.html">
+<meta property="og:title" content="Java I&#x2F;O模型">
+<meta property="og:url" content="http://yoursite.com/2018/04/20/Java_NIO/index.html">
 <meta property="og:site_name" content="Imoko">
-<meta property="og:description" content="Java I/O模型event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or mor">
+<meta property="og:description" content="event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or more I/O cond">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034421623.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034547878.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034630907.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180422003741608.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010715580.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010833942.png">
-<meta property="og:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180422011045446.png">
-<meta property="og:updated_time" content="2018-11-22T02:41:43.000Z">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180803034421623.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180803034547878.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180803034630907.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180422003741608.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180422010715580.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180422010833942.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180422011045446.png">
+<meta property="og:updated_time" content="2018-11-22T06:36:29.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Imoko">
-<meta name="twitter:description" content="Java I/O模型event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or mor">
-<meta name="twitter:image" content="http://yoursite.com/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034421623.png">
+<meta name="twitter:title" content="Java I&#x2F;O模型">
+<meta name="twitter:description" content="event multiplexing什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。 UNIX Network Programming中给出的一个描述： 1What we need is the capability to tell the kernel that we want to be notified if one or more I/O cond">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/20/Java_NIO/image-20180803034421623.png">
   
     <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
   
@@ -72,19 +72,29 @@
   </div>
 </header>
       <div class="outer">
-        <section id="main"><article id="post-2018-04-20-Java_NIO" class="article article-type-post" itemscope="" itemprop="blogPost">
+        <section id="main"><article id="post-Java_NIO" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
-    <a href="/2018/11/22/2018-04-20-Java_NIO/" class="article-date">
-  <time datetime="2018-11-22T02:41:43.000Z" itemprop="datePublished">2018-11-22</time>
+    <a href="/2018/04/20/Java_NIO/" class="article-date">
+  <time datetime="2018-04-19T16:00:00.000Z" itemprop="datePublished">2018-04-20</time>
 </a>
     
   </div>
   <div class="article-inner">
     
     
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Java I/O模型
+    </h1>
+  
+
+      </header>
+    
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="Java-I-O模型"><a href="#Java-I-O模型" class="headerlink" title="Java I/O模型"></a>Java I/O模型</h1><h2 id="event-multiplexing"><a href="#event-multiplexing" class="headerlink" title="event multiplexing"></a>event multiplexing</h2><p>什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。</p>
+        <h2 id="event-multiplexing"><a href="#event-multiplexing" class="headerlink" title="event multiplexing"></a>event multiplexing</h2><p>什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。</p>
 <p>UNIX Network Programming中给出的一个描述：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">What we need is the capability to tell the kernel that we want to be notified if one or more I/O conditions are ready (i.e., input is ready to be read, or the descriptor is capable of taking more output). This capability is called I/O multiplexing and is provided by the select and poll functions.</span><br></pre></td></tr></table></figure>
 <p>为了区分开下面三种I/O模型，我们需要了解下：</p>
@@ -96,14 +106,14 @@
 <p><strong>阻塞I/O</strong> (Blocking I/O model)：</p>
 <p>调用read时，线程会被阻塞住，直到数据写入到<strong>用户</strong>的buffer。</p>
 <p>​              问题：需要大量的线程。费内存，线程切换对CPU的开销</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034421623.png" alt="image-20180803034421623"></p>
+<p><img src="image-20180803034421623.png" alt="image-20180803034421623"></p>
 <p><strong>非阻塞I/O(Nonblocking I/O model)</strong>：</p>
 <p>read时，如果有数据，就和阻塞I/O一样；如果没有数据，就立即返回失败。</p>
 <p>​               问题：需要轮询，也很费CPU</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034547878.png" alt="image-20180803034547878"></p>
+<p><img src="image-20180803034547878.png" alt="image-20180803034547878"></p>
 <p><strong>IO多路复用</strong>(I/O Multiplexing model)：</p>
 <p>使用一个线程来检查多个文件描述符的状态，看是否有数据到达，阻塞直到有一个文件描述符有数据到达。后续的操作，可以在同一个线程里面执行，也可以另起线程。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180803034630907.png" alt="image-20180803034630907"></p>
+<p><img src="image-20180803034630907.png" alt="image-20180803034630907"></p>
 <h2 id="I-O多路复用的多种实现"><a href="#I-O多路复用的多种实现" class="headerlink" title="I/O多路复用的多种实现"></a>I/O多路复用的多种实现</h2><h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *timeout)</span><br></pre></td></tr></table></figure>
 <h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">poll(struct pollfd *fds, int nfds, int timeout)</span><br><span class="line"></span><br><span class="line">struct pollfd &#123;</span><br><span class="line">    int fd;</span><br><span class="line">    short events;</span><br><span class="line">    short revents;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <h3 id="kqueue"><a href="#kqueue" class="headerlink" title="kqueue"></a>kqueue</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">int kqueue(void);</span><br><span class="line">int kevent(int kq, const struct kevent *changelist, int nchanges, </span><br><span class="line">           struct kevent *eventlist, int nevents, const struct timespec *timeout);</span><br><span class="line">           </span><br><span class="line">struct kevent &#123;</span><br><span class="line">     uintptr_t       ident;          /* identifier for this event */</span><br><span class="line">     int16_t         filter;         /* filter for event */</span><br><span class="line">     uint16_t        flags;          /* general flags */</span><br><span class="line">     uint32_t        fflags;         /* filter-specific flags */</span><br><span class="line">     intptr_t        data;           /* filter-specific data */</span><br><span class="line">     void            *udata;         /* opaque user data identifier */</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
@@ -129,7 +139,7 @@
 <li>compact(): 将未读取完的数据（position 与 limit 之间的数据）移动到缓冲区开头，并将 position 设置为这段数据末尾的下一个位置。其实就等价于重新向缓冲区中写入了这么一段数据。</li>
 </ul>
 <h3 id="NIO-server完整实例"><a href="#NIO-server完整实例" class="headerlink" title="NIO server完整实例"></a>NIO server完整实例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NioServer</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="comment">// 创建一个selector</span></span><br><span class="line">        Selector selector = Selector.open();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 初始化TCP连接监听通道</span></span><br><span class="line">        ServerSocketChannel listenChannel = ServerSocketChannel.open();</span><br><span class="line">        listenChannel.bind(<span class="keyword">new</span> InetSocketAddress(<span class="number">9999</span>));</span><br><span class="line">        listenChannel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">        <span class="comment">// 注册到selector（监听其ACCEPT事件）</span></span><br><span class="line">        listenChannel.register(selector, SelectionKey.OP_ACCEPT);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 创建一个缓冲区</span></span><br><span class="line">        ByteBuffer buffer = ByteBuffer.allocate(<span class="number">100</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            selector.select(); <span class="comment">//阻塞，直到有监听的事件发生</span></span><br><span class="line">            Iterator&lt;SelectionKey&gt; keyIter = selector.selectedKeys().iterator();</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 通过迭代器依次访问select出来的Channel事件</span></span><br><span class="line">            <span class="keyword">while</span> (keyIter.hasNext()) &#123;</span><br><span class="line">                SelectionKey key = keyIter.next();</span><br><span class="line">                </span><br><span class="line">                <span class="keyword">if</span> (key.isAcceptable()) &#123; <span class="comment">// 有连接可以接受</span></span><br><span class="line">                    SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();</span><br><span class="line">                    channel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">                    channel.register(selector, SelectionKey.OP_READ);</span><br><span class="line">                    </span><br><span class="line">                    System.out.println(<span class="string">"与【"</span> + channel.getRemoteAddress() + <span class="string">"】建立了连接！"</span>);</span><br><span class="line">                    </span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (key.isReadable()) &#123; <span class="comment">// 有数据可以读取</span></span><br><span class="line">                    buffer.clear();</span><br><span class="line">    </span><br><span class="line">                    <span class="comment">// 读取到流末尾说明TCP连接已断开，</span></span><br><span class="line">                    <span class="comment">// 因此需要关闭通道或者取消监听READ事件</span></span><br><span class="line">                    <span class="comment">// 否则会无限循环</span></span><br><span class="line">                    <span class="keyword">if</span> (((SocketChannel) key.channel()).read(buffer) == -<span class="number">1</span>) &#123;</span><br><span class="line">                        key.channel().close();</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125; </span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">// 按字节遍历数据</span></span><br><span class="line">                    buffer.flip();</span><br><span class="line">                    <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                        <span class="keyword">byte</span> b = buffer.get();</span><br><span class="line">                        </span><br><span class="line">                        <span class="keyword">if</span> (b == <span class="number">0</span>) &#123; <span class="comment">// 客户端消息末尾的\0</span></span><br><span class="line">                            System.out.println();</span><br><span class="line">                            </span><br><span class="line">                            <span class="comment">// 响应客户端</span></span><br><span class="line">                            buffer.clear();</span><br><span class="line">                            buffer.put(<span class="string">"Hello, Client!\0"</span>.getBytes());</span><br><span class="line">                            buffer.flip();</span><br><span class="line">                            <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                                ((SocketChannel) key.channel()).write(buffer);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            System.out.print((<span class="keyword">char</span>) b);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 已经处理的事件一定要手动移除</span></span><br><span class="line">                keyIter.remove();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422003741608.png" alt="image-20180422003741608"></p>
+<p><img src="image-20180422003741608.png" alt="image-20180422003741608"></p>
 <p>上面的例子可以用上图来描述，上图中的Acceptor，就是上面的代码运行的线程。</p>
 <h2 id="NIO与传统IO的区别"><a href="#NIO与传统IO的区别" class="headerlink" title="NIO与传统IO的区别"></a>NIO与传统IO的区别</h2><p>NIO和传统IO（一下简称IO）之间第一个最大的区别是，IO是面向流的，NIO是面向缓冲区的。 Java IO面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方。此外，它不能前后移动流中的数据。如果需要前后移动从流中读取的数据，需要先将它缓存到一个缓冲区。NIO的缓冲导向方法略有不同。数据读取到一个它稍后处理的缓冲区，需要时可在缓冲区中前后移动。这就增加了处理过程中的灵活性。</p>
 <p>IO的各种流是阻塞的。这意味着，当一个线程调用read() 或 write()时，该线程被阻塞，直到有一些数据被读取，或数据完全写入。</p>
@@ -146,11 +156,11 @@
 <li>Handler：消息读写处理等操作类</li>
 </ul>
 <h4 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h4><p>和NIO很相似，只是对IO读到的数据的处理（有数据可以读取的分支里面的代码），放到了<strong>Handler</strong>中。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010715580.png" alt="image-20180422010715580"></p>
+<p><img src="image-20180422010715580.png" alt="image-20180422010715580"></p>
 <h4 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h4><p>将数据的处理代码，改为多线程实现。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422010833942.png" alt="image-20180422010833942"></p>
+<p><img src="image-20180422010833942.png" alt="image-20180422010833942"></p>
 <h4 id="主从Reactor模型"><a href="#主从Reactor模型" class="headerlink" title="主从Reactor模型"></a>主从Reactor模型</h4><p>因为Reactor既要处理IO连接请求，又要处理Read，所以出现了下面的方式，MainReactor处理IO连接请求，SubReactor处理Read等。</p>
-<p><img src="/Users/sutao/github/sutoo.github.io/assets/img/image-20180422011045446.png" alt="image-20180422011045446"></p>
+<p><img src="image-20180422011045446.png" alt="image-20180422011045446"></p>
 <h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><p><a href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html" target="_blank" rel="noopener">https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html</a></p>
 <p><a href="http://www.ivaneye.com/2016/07/23/iomodel.html" target="_blank" rel="noopener">http://www.ivaneye.com/2016/07/23/iomodel.html</a></p>
 <p><a href="https://www.cnblogs.com/coderjun/p/7100423.html" target="_blank" rel="noopener">https://www.cnblogs.com/coderjun/p/7100423.html</a></p>
@@ -158,7 +168,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/2018-04-20-Java_NIO/" data-id="cjos04qel0001cfwkd9dqz8jf" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/04/20/Java_NIO/" data-id="cjos8tzhq000orkwkrsy2fecf" class="article-share-link">Share</a>
       
       
     </footer>
@@ -167,10 +177,19 @@
     
 <nav id="article-nav">
   
+    <a href="/2018/05/06/DBs-mongoDB/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          MongoDB
+        
+      </div>
+    </a>
   
-    <a href="/2018/11/22/2018-11-9-Histograms/" id="article-nav-older" class="article-nav-link-wrap">
+  
+    <a href="/2018/04/18/Concurrency/" id="article-nav-older" class="article-nav-link-wrap">
       <strong class="article-nav-caption">Older</strong>
-      <div class="article-nav-title"></div>
+      <div class="article-nav-title">Concurrency</div>
     </a>
   
 </nav>
@@ -194,7 +213,7 @@
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
     </div>
   </div>
 
@@ -207,11 +226,23 @@
       <ul>
         
           <li>
-            <a href="/2018/11/22/2018-04-20-Java_NIO/">(no title)</a>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
           </li>
         
           <li>
-            <a href="/2018/11/22/2018-11-9-Histograms/">(no title)</a>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/consul-simple/">Consul简介</a>
           </li>
         
       </ul>
