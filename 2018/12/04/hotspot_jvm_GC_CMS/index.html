@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+
+  
+  <title>hotspot_jvm_GC_CMS | Imoko</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="CMS CMS全称 Concurrent Mark Sweep，是一款并发的、使用标记-清除算法的垃圾回收器. JVM 中,老年代的gc可以使用CMS. 触发点1 周期性触发 2 条件性触发  老年代使用率达到阈值  新生代的晋升担保失败  主要是上面两个,还有其他情况暂不考虑. 收集过程CMS是一种优化的mark-sweep算法,mark-sweep的核心是对象树的遍历, 面临的问题是这个数非常">
+<meta name="keywords" content="GC,JVM">
+<meta property="og:type" content="article">
+<meta property="og:title" content="hotspot_jvm_GC_CMS">
+<meta property="og:url" content="http://yoursite.com/2018/12/04/hotspot_jvm_GC_CMS/index.html">
+<meta property="og:site_name" content="Imoko">
+<meta property="og:description" content="CMS CMS全称 Concurrent Mark Sweep，是一款并发的、使用标记-清除算法的垃圾回收器. JVM 中,老年代的gc可以使用CMS. 触发点1 周期性触发 2 条件性触发  老年代使用率达到阈值  新生代的晋升担保失败  主要是上面两个,还有其他情况暂不考虑. 收集过程CMS是一种优化的mark-sweep算法,mark-sweep的核心是对象树的遍历, 面临的问题是这个数非常">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/700.png">
+<meta property="og:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/701.png">
+<meta property="og:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-07.png">
+<meta property="og:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-08.png">
+<meta property="og:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-09.png">
+<meta property="og:updated_time" content="2018-12-05T17:49:43.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="hotspot_jvm_GC_CMS">
+<meta name="twitter:description" content="CMS CMS全称 Concurrent Mark Sweep，是一款并发的、使用标记-清除算法的垃圾回收器. JVM 中,老年代的gc可以使用CMS. 触发点1 周期性触发 2 条件性触发  老年代使用率达到阈值  新生代的晋升担保失败  主要是上面两个,还有其他情况暂不考虑. 收集过程CMS是一种优化的mark-sweep算法,mark-sweep的核心是对象树的遍历, 面临的问题是这个数非常">
+<meta name="twitter:image" content="http://yoursite.com/Users/sutao/blog/source/_posts/hotspot-jvm-GC/700.png">
+  
+    <link rel="alternate" href="/atom.xml" title="Imoko" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+    <link href="//fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">Imoko</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-hotspot_jvm_GC_CMS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/12/04/hotspot_jvm_GC_CMS/" class="article-date">
+  <time datetime="2018-12-04T13:42:07.000Z" itemprop="datePublished">2018-12-04</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/JVM/">JVM</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      hotspot_jvm_GC_CMS
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>CMS</p>
+<p>CMS全称 <code>Concurrent Mark Sweep</code>，是一款并发的、使用标记-清除算法的垃圾回收器.</p>
+<p>JVM 中,老年代的gc可以使用CMS.</p>
+<h2 id="触发点"><a href="#触发点" class="headerlink" title="触发点"></a>触发点</h2><p>1 周期性触发</p>
+<p>2 条件性触发</p>
+<ul>
+<li>老年代使用率达到阈值 </li>
+<li>新生代的晋升担保失败</li>
+</ul>
+<p>主要是上面两个,还有其他情况暂不考虑.</p>
+<h2 id="收集过程"><a href="#收集过程" class="headerlink" title="收集过程"></a>收集过程</h2><p>CMS是一种优化的mark-sweep算法,mark-sweep的核心是对象树的遍历, 面临的问题是这个数非常的巨大.但还是基于简单的图的遍历算法:三色标记法.</p>
+<blockquote>
+<p>对象在标记过程中，根据标记情况，分成三类：</p>
+<ol>
+<li>白色对象，表示自身未被标记；</li>
+<li>灰色对象，表示自身被标记，但内部引用未被处理；</li>
+<li>黑色对象，表示自身被标记，内部引用都被处理；</li>
+</ol>
+</blockquote>
+<h5 id="Phase-1-InitialMarking（初始化标记，整个过程STW）"><a href="#Phase-1-InitialMarking（初始化标记，整个过程STW）" class="headerlink" title="Phase 1: InitialMarking（初始化标记，整个过程STW）"></a>Phase 1: InitialMarking（初始化标记，整个过程STW）</h5><p>该阶段单线程执行，主要分分为两步：</p>
+<ol>
+<li>标记GC Roots可达的老年代对象；</li>
+<li>遍历新生代对象，标记可达的老年代对象；</li>
+</ol>
+<p>标记结束后,如下图:</p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/700.png" alt="img"></p>
+<h5 id="Phase-2-Marking（并发标记）"><a href="#Phase-2-Marking（并发标记）" class="headerlink" title="Phase 2: Marking（并发标记）"></a>Phase 2: Marking（并发标记）</h5><p>该阶段GC线程和应用线程并发执行，遍历InitialMarking阶段标记出来的存活对象，然后继续递归标记这些对象可达的对象。</p>
+<p>因为该阶段并发执行的，在运行期间可能发生</p>
+<ul>
+<li>新生代的对象晋升到老年代、</li>
+<li>或者是直接在老年代分配对象、</li>
+<li>或者更新老年代对象的引用关系等等.</li>
+</ul>
+<p>对于这些对象，都是需要进行重新标记的，否则有些对象就会被遗漏，发生漏标的情况。</p>
+<p>为了提高重新标记的效率，该阶段会把上述对象所在的Card标识为Dirty，后续只需扫描这些<strong><em>Dirty Card</em></strong>的对象，避免扫描整个老年代。</p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/701.png" alt="img"></p>
+<h5 id="Phase-3-Concurrent-Preclean-预清理"><a href="#Phase-3-Concurrent-Preclean-预清理" class="headerlink" title="Phase 3: Concurrent Preclean 预清理"></a>Phase 3: Concurrent Preclean 预清理</h5><p> This is again a concurrent phase, running in parallel with the application threads, not stopping them. While the previous phase was running concurrently with the application, some references were changed. Whenever that happens, the JVM marks the area of the heap (called “Card”) that contains the mutated object as “dirty” (this is known as <a href="http://psy-lob-saw.blogspot.com.ee/2014/10/the-jvm-write-barrier-card-marking.html" target="_blank" rel="noopener">Card Marking</a>). </p>
+<p>总的来说, 这个阶段是一个<code>并行</code>的<code>标记</code>过程.</p>
+<p>主要目的:减轻Final remark的执行时间.</p>
+<p>主要做两件事情：</p>
+<ol>
+<li>处理新生代已经发现的引用，比如在并发阶段，在Eden区中分配了一个A对象，A对象引用了一个老年代对象B（这个B之前没有被标记），在这个阶段就会标记对象B为活跃对象。</li>
+<li>在并发标记阶段，如果老年代中有对象内部引用发生变化，会把所在的Card标记为Dirty（其实这里并非使用CardTable，而是一个类似的数据结构，叫ModUnionTalble），通过扫描这些Table，重新标记那些在并发标记阶段引用被更新的对象（晋升到老年代的对象、原本就在老年代的对象）.  Dirty card 会被清理干净,当这个card中的对象的可达对象都被标记之后.如下面三个图:</li>
+</ol>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-07.png" alt="CMS concurrent marking"></p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-08.png" alt="CMS dirty cards"></p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-09.png" alt="CMS concurrent preclean"></p>
+<p>##### </p>
+<h5 id="Phase-4-Concurrent-Abortable-Preclean-可中断的预清理"><a href="#Phase-4-Concurrent-Abortable-Preclean-可中断的预清理" class="headerlink" title="Phase 4: Concurrent Abortable Preclean 可中断的预清理"></a>Phase 4: Concurrent Abortable Preclean 可中断的预清理</h5><p>又是一个<code>并行</code>的<code>标记</code>过程.</p>
+<p>主要目的: 减轻Final Remark 的执行时间.</p>
+<p>该阶段发生的前提是，新生代Eden区的内存使用量大于参数<code>CMSScheduleRemarkEdenSizeThreshold</code> 默认是2M，如果新生代的对象太少，就没有必要执行该阶段，直接执行重新标记阶段。</p>
+<p>在该阶段，主要循环的做两件事：</p>
+<ol>
+<li>处理 From 和 To 区的对象，标记可达的老年代对象</li>
+<li>和上一个阶段一样，扫描处理Dirty Card中的对象</li>
+</ol>
+<p>当然了，这个逻辑不会一直循环下去，打断这个循环的条件有三个：</p>
+<ol>
+<li>可以设置最多循环的次数 <code>CMSMaxAbortablePrecleanLoops</code>，默认是0，意思没有循环次数的限制。</li>
+<li>如果执行这个逻辑的时间达到了阈值<code>CMSMaxAbortablePrecleanTime</code>，默认是5s，会退出循环。</li>
+<li>如果新生代Eden区的内存使用率达到了阈值<code>CMSScheduleRemarkEdenPenetration</code>，默认50%，会退出循环。（这个条件能够成立的前提是，在进行Precleaning时，Eden区的使用率小于十分之一）</li>
+</ol>
+<p>如果在循环退出之前，发生了一次YGC，对于后面的Remark阶段来说，大大减轻了扫描年轻代的负担，但是发生YGC并非人为控制，所以只能祈祷这5s内可以来一次YGC。</p>
+<h5 id="Phase-5-Final-Remark-STW"><a href="#Phase-5-Final-Remark-STW" class="headerlink" title="Phase 5: Final Remark (STW)"></a>Phase 5: Final Remark (STW)</h5><p>这是第二个会STW的步骤,也是最后一个.这个步骤的目的是标记Old Generation中的所有存活对象. 因为之前的<code>标记</code>步骤都是和用户线程并发进行的,所以需要一个STW来确保所有的存活对象不会被误回收.</p>
+<p>进行如下的处理：</p>
+<ol>
+<li>遍历新生代对象，重新标记</li>
+<li>根据GC Roots，重新标记</li>
+<li>遍历老年代的Dirty Card，重新标记，这里的Dirty Card大部分已经在clean阶段处理过</li>
+</ol>
+<p>之所以要在之前进行Phase 3,4,主要原因是为了减少标记的时间,虽然在phase5中还是要从ROOT扫描全部,但是已经标记过的对象就会快速跳过.</p>
+<h5 id="Phase-6-Concurrent-Sweep"><a href="#Phase-6-Concurrent-Sweep" class="headerlink" title="Phase 6: Concurrent Sweep"></a>Phase 6: Concurrent Sweep</h5><p>清理垃圾对象，这个阶段GC线程和用户线程并发执行。</p>
+<h5 id="Phase-7-Concurrent-Reset"><a href="#Phase-7-Concurrent-Reset" class="headerlink" title="Phase 7: Concurrent Reset"></a>Phase 7: Concurrent Reset</h5><p>重置CMS收集器的数据结构，做好下一次执行GC任务的准备工作。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/12/04/hotspot_jvm_GC_CMS/" data-id="cjpbgxpxd000ty8fyfldzx2ea" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/GC/">GC</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/JVM/">JVM</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2018/11/22/GC_overview/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">GC_overview</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/GC/">GC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/GC/" style="font-size: 20px;">GC</a> <a href="/tags/JVM/" style="font-size: 10px;">JVM</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2018/12/04/hotspot_jvm_GC_CMS/">hotspot_jvm_GC_CMS</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/GC_overview/">GC_overview</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2018 Tao<br>
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  <script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script src="/js/script.js"></script>
+
+
+
+  </div>
+</body>
+</html>

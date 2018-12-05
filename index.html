@@ -62,6 +62,223 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-hotspot_jvm_GC_CMS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/12/04/hotspot_jvm_GC_CMS/" class="article-date">
+  <time datetime="2018-12-04T13:42:07.000Z" itemprop="datePublished">2018-12-04</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/JVM/">JVM</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/12/04/hotspot_jvm_GC_CMS/">hotspot_jvm_GC_CMS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>CMS</p>
+<p>CMS全称 <code>Concurrent Mark Sweep</code>，是一款并发的、使用标记-清除算法的垃圾回收器.</p>
+<p>JVM 中,老年代的gc可以使用CMS.</p>
+<h2 id="触发点"><a href="#触发点" class="headerlink" title="触发点"></a>触发点</h2><p>1 周期性触发</p>
+<p>2 条件性触发</p>
+<ul>
+<li>老年代使用率达到阈值 </li>
+<li>新生代的晋升担保失败</li>
+</ul>
+<p>主要是上面两个,还有其他情况暂不考虑.</p>
+<h2 id="收集过程"><a href="#收集过程" class="headerlink" title="收集过程"></a>收集过程</h2><p>CMS是一种优化的mark-sweep算法,mark-sweep的核心是对象树的遍历, 面临的问题是这个数非常的巨大.但还是基于简单的图的遍历算法:三色标记法.</p>
+<blockquote>
+<p>对象在标记过程中，根据标记情况，分成三类：</p>
+<ol>
+<li>白色对象，表示自身未被标记；</li>
+<li>灰色对象，表示自身被标记，但内部引用未被处理；</li>
+<li>黑色对象，表示自身被标记，内部引用都被处理；</li>
+</ol>
+</blockquote>
+<h5 id="Phase-1-InitialMarking（初始化标记，整个过程STW）"><a href="#Phase-1-InitialMarking（初始化标记，整个过程STW）" class="headerlink" title="Phase 1: InitialMarking（初始化标记，整个过程STW）"></a>Phase 1: InitialMarking（初始化标记，整个过程STW）</h5><p>该阶段单线程执行，主要分分为两步：</p>
+<ol>
+<li>标记GC Roots可达的老年代对象；</li>
+<li>遍历新生代对象，标记可达的老年代对象；</li>
+</ol>
+<p>标记结束后,如下图:</p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/700.png" alt="img"></p>
+<h5 id="Phase-2-Marking（并发标记）"><a href="#Phase-2-Marking（并发标记）" class="headerlink" title="Phase 2: Marking（并发标记）"></a>Phase 2: Marking（并发标记）</h5><p>该阶段GC线程和应用线程并发执行，遍历InitialMarking阶段标记出来的存活对象，然后继续递归标记这些对象可达的对象。</p>
+<p>因为该阶段并发执行的，在运行期间可能发生</p>
+<ul>
+<li>新生代的对象晋升到老年代、</li>
+<li>或者是直接在老年代分配对象、</li>
+<li>或者更新老年代对象的引用关系等等.</li>
+</ul>
+<p>对于这些对象，都是需要进行重新标记的，否则有些对象就会被遗漏，发生漏标的情况。</p>
+<p>为了提高重新标记的效率，该阶段会把上述对象所在的Card标识为Dirty，后续只需扫描这些<strong><em>Dirty Card</em></strong>的对象，避免扫描整个老年代。</p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/701.png" alt="img"></p>
+<h5 id="Phase-3-Concurrent-Preclean-预清理"><a href="#Phase-3-Concurrent-Preclean-预清理" class="headerlink" title="Phase 3: Concurrent Preclean 预清理"></a>Phase 3: Concurrent Preclean 预清理</h5><p> This is again a concurrent phase, running in parallel with the application threads, not stopping them. While the previous phase was running concurrently with the application, some references were changed. Whenever that happens, the JVM marks the area of the heap (called “Card”) that contains the mutated object as “dirty” (this is known as <a href="http://psy-lob-saw.blogspot.com.ee/2014/10/the-jvm-write-barrier-card-marking.html" target="_blank" rel="noopener">Card Marking</a>). </p>
+<p>总的来说, 这个阶段是一个<code>并行</code>的<code>标记</code>过程.</p>
+<p>主要目的:减轻Final remark的执行时间.</p>
+<p>主要做两件事情：</p>
+<ol>
+<li>处理新生代已经发现的引用，比如在并发阶段，在Eden区中分配了一个A对象，A对象引用了一个老年代对象B（这个B之前没有被标记），在这个阶段就会标记对象B为活跃对象。</li>
+<li>在并发标记阶段，如果老年代中有对象内部引用发生变化，会把所在的Card标记为Dirty（其实这里并非使用CardTable，而是一个类似的数据结构，叫ModUnionTalble），通过扫描这些Table，重新标记那些在并发标记阶段引用被更新的对象（晋升到老年代的对象、原本就在老年代的对象）.  Dirty card 会被清理干净,当这个card中的对象的可达对象都被标记之后.如下面三个图:</li>
+</ol>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-07.png" alt="CMS concurrent marking"></p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-08.png" alt="CMS dirty cards"></p>
+<p><img src="/Users/sutao/blog/source/_posts/hotspot-jvm-GC/g1-09.png" alt="CMS concurrent preclean"></p>
+<p>##### </p>
+<h5 id="Phase-4-Concurrent-Abortable-Preclean-可中断的预清理"><a href="#Phase-4-Concurrent-Abortable-Preclean-可中断的预清理" class="headerlink" title="Phase 4: Concurrent Abortable Preclean 可中断的预清理"></a>Phase 4: Concurrent Abortable Preclean 可中断的预清理</h5><p>又是一个<code>并行</code>的<code>标记</code>过程.</p>
+<p>主要目的: 减轻Final Remark 的执行时间.</p>
+<p>该阶段发生的前提是，新生代Eden区的内存使用量大于参数<code>CMSScheduleRemarkEdenSizeThreshold</code> 默认是2M，如果新生代的对象太少，就没有必要执行该阶段，直接执行重新标记阶段。</p>
+<p>在该阶段，主要循环的做两件事：</p>
+<ol>
+<li>处理 From 和 To 区的对象，标记可达的老年代对象</li>
+<li>和上一个阶段一样，扫描处理Dirty Card中的对象</li>
+</ol>
+<p>当然了，这个逻辑不会一直循环下去，打断这个循环的条件有三个：</p>
+<ol>
+<li>可以设置最多循环的次数 <code>CMSMaxAbortablePrecleanLoops</code>，默认是0，意思没有循环次数的限制。</li>
+<li>如果执行这个逻辑的时间达到了阈值<code>CMSMaxAbortablePrecleanTime</code>，默认是5s，会退出循环。</li>
+<li>如果新生代Eden区的内存使用率达到了阈值<code>CMSScheduleRemarkEdenPenetration</code>，默认50%，会退出循环。（这个条件能够成立的前提是，在进行Precleaning时，Eden区的使用率小于十分之一）</li>
+</ol>
+<p>如果在循环退出之前，发生了一次YGC，对于后面的Remark阶段来说，大大减轻了扫描年轻代的负担，但是发生YGC并非人为控制，所以只能祈祷这5s内可以来一次YGC。</p>
+<h5 id="Phase-5-Final-Remark-STW"><a href="#Phase-5-Final-Remark-STW" class="headerlink" title="Phase 5: Final Remark (STW)"></a>Phase 5: Final Remark (STW)</h5><p>这是第二个会STW的步骤,也是最后一个.这个步骤的目的是标记Old Generation中的所有存活对象. 因为之前的<code>标记</code>步骤都是和用户线程并发进行的,所以需要一个STW来确保所有的存活对象不会被误回收.</p>
+<p>进行如下的处理：</p>
+<ol>
+<li>遍历新生代对象，重新标记</li>
+<li>根据GC Roots，重新标记</li>
+<li>遍历老年代的Dirty Card，重新标记，这里的Dirty Card大部分已经在clean阶段处理过</li>
+</ol>
+<p>之所以要在之前进行Phase 3,4,主要原因是为了减少标记的时间,虽然在phase5中还是要从ROOT扫描全部,但是已经标记过的对象就会快速跳过.</p>
+<h5 id="Phase-6-Concurrent-Sweep"><a href="#Phase-6-Concurrent-Sweep" class="headerlink" title="Phase 6: Concurrent Sweep"></a>Phase 6: Concurrent Sweep</h5><p>清理垃圾对象，这个阶段GC线程和用户线程并发执行。</p>
+<h5 id="Phase-7-Concurrent-Reset"><a href="#Phase-7-Concurrent-Reset" class="headerlink" title="Phase 7: Concurrent Reset"></a>Phase 7: Concurrent Reset</h5><p>重置CMS收集器的数据结构，做好下一次执行GC任务的准备工作。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/12/04/hotspot_jvm_GC_CMS/" data-id="cjpbgxpxd000ty8fyfldzx2ea" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/GC/">GC</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/JVM/">JVM</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-GC_overview" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/GC_overview/" class="article-date">
+  <time datetime="2018-11-22T10:33:01.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/JVM/">JVM</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/GC_overview/">GC_overview</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Garbage Collection</p>
+<h1 id="Copying-Garbage-Collection"><a href="#Copying-Garbage-Collection" class="headerlink" title="Copying Garbage Collection"></a>Copying Garbage Collection</h1><p>简单来说,内存分为2个区域,使用其中一个区域分配内存,直到剩余内存不足,则触发GC:遍历所有的ROOT,将可达的对象copy到另外一块内存区域中.</p>
+<p>好处: 内存分配相当的快,只是指针的移动.</p>
+<p>坏处: 浪费内存.</p>
+<p>#Mark and Sweep Garbage Collection</p>
+<p>sweep: 扫除; 打扫，清理; </p>
+<p>标记，清理垃圾回收</p>
+<p>伪代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">void GC()</span><br><span class="line">&#123;</span><br><span class="line">    HaltAllProcessing();</span><br><span class="line">    // 枚举root</span><br><span class="line">    ObjectCollection roots = GetRoots();</span><br><span class="line">    for(int i = 0; i &lt; roots.Count(); ++i)</span><br><span class="line">        //标记</span><br><span class="line">        Mark(roots[i]);</span><br><span class="line">    //清理</span><br><span class="line">    Sweep();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>##枚举root</p>
+<p>遍历这些地方的所有reference : registers, global or static fields, local variables on the stack, function arguments on stack。</p>
+<h2 id="标记"><a href="#标记" class="headerlink" title="标记"></a>标记</h2><p>利用每个对象的header中的marked flag，进行标记</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">void Mark(Object* pObj)</span><br><span class="line">&#123;</span><br><span class="line">    if (!Marked(pObj)) // Marked returns the marked flag from object header</span><br><span class="line">    &#123;</span><br><span class="line">        MarkBit(pObj); // Marks the flag in obj header</span><br><span class="line"></span><br><span class="line">        // Get list of references that the current object has</span><br><span class="line">        // and recursively mark them as well</span><br><span class="line">        ObjectCollection children = pObj-&gt;GetChildren();</span><br><span class="line">        for(int i = 0; i &lt; children.Count(); ++i)</span><br><span class="line">        &#123;</span><br><span class="line">            Mark(children[i]); // recursively call mark</span><br><span class="line">        &#125;	</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>利用递归的方法进行标记。</p>
+<h2 id="清理"><a href="#清理" class="headerlink" title="清理"></a>清理</h2><p>通过遍历整个内存并释放未标记的内存块来开始扫描。它还会清除标记位，以便后续GC通过可以正确标记/取消标记它们。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">void Sweep()</span><br><span class="line">&#123;</span><br><span class="line">	//遍历整个内存</span><br><span class="line">    Object *pHeap = pHeapStart;</span><br><span class="line">    while(pHeap &lt; pHeapEnd)</span><br><span class="line">    &#123;</span><br><span class="line">        if (!Marked(pHeap))</span><br><span class="line">            Free(pHeap); // put it to the free object list</span><br><span class="line">        else</span><br><span class="line">            UnMarkBit(pHeap);</span><br><span class="line">        pHeap = GetNext(pHeap);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="压缩"><a href="#压缩" class="headerlink" title="压缩"></a>压缩</h2><p>长期的进行GC，可能会导致内存碎片。回收后的压缩能减少碎片，但是，当内存被压缩时，对象会移动，因此必须更新对它们的所有引用以指向新位置。</p>
+<h2 id="溢出处理"><a href="#溢出处理" class="headerlink" title="溢出处理"></a>溢出处理</h2><p>垃圾回收面对的是一个非常巨大的对象树，之前的Mark-sweep伪代码中，使用递归的方法，容易引起stack overflow。</p>
+<p>我们可以用一个MarkStack来代替递归，然后使用广度优先来遍历，来尽量避免overflow。但是如果溢出还是不能完全避免，如果发生了溢出，可以采取一些fallbakc 方法：</p>
+<ul>
+<li><p><strong>Overflow stack</strong></p>
+<p>我们会有另外一个stack，叫overflow stack。如果mark steack 满了，object会被塞入overflow stack，并且暂时不去遍历它的孩子节点。</p>
+</li>
+<li><p><strong>Overflow-arena</strong> </p>
+<p>对于overflow stack 都overflow的情况，使用一个链表保存溢出的对象。</p>
+</li>
+</ul>
+<h2 id="优点和缺点"><a href="#优点和缺点" class="headerlink" title="优点和缺点"></a>优点和缺点</h2><p>优点：可以处理循环引用，而且对平时的处理没有额外的开销（相对引用计数而言）</p>
+<p>缺点：1 stw </p>
+<pre><code>2 需要遍历整个内存
+</code></pre><p> 对这两个缺点，Mark-sweep算法也有很多优化的版本，如JVM的 CMS。</p>
+<h1 id="Generational-Garbage-Collection"><a href="#Generational-Garbage-Collection" class="headerlink" title="Generational Garbage Collection"></a>Generational Garbage Collection</h1><p>分代垃圾收集的思想是基于基本的垃圾回收算法之上的.</p>
+<p>上面提到的一个mark-sweep的一个重要缺点就是会导致系统暂停。用于解决该问题的主要优化方法之一是采用<code>分代垃圾收集</code>。分代垃圾收集基于以下几个特点:</p>
+<ul>
+<li>大部分对象在很年轻的时候就死了</li>
+<li>GC中回收的对象有90%是在上次GC之后创建的</li>
+<li>如果一个对象在一次GC中存活, 它在短期内变成垃圾的概率很低</li>
+</ul>
+<p>一种常见的方法是将新创建的对象视为在第0代（Gen0）中，然后如果它没有被垃圾收集循环收集，则将其提升到下一个更高代的Gen1. 更频繁地收集较低代. 这可确保降低系统暂停时间. 触发较高代的集合的次数较少. 使用了多少代，因系统而异. 在.NET中使用了3代。为简单起见，我们将考虑使用2代系统，但概念很容易扩展到2代以上. </p>
+<h2 id="高代到低代的引用"><a href="#高代到低代的引用" class="headerlink" title="高代到低代的引用"></a>高代到低代的引用</h2><p>分代垃圾回收器(Generational garbage collectors)需要跟踪 <code>老年代-&gt;年轻代</code>的引用, 以便在对<code>年轻代</code>回收时, 不用去遍历<code>老年代</code>的所有对象.</p>
+<p><strong><em>为什么只用考虑老年代中指向了年轻代的引用?</em></strong></p>
+<p>因为年轻代的内存次数远大于老年代, 且老年代的内存空间一般会更大.并且经过统计信息显示，老年代持有新生代对象引用的情况不足1%.其实在对老年代GC的时候,也是需要考虑年轻代中的对老年代中对象的引用.</p>
+<h3 id="Write-Barrier定义"><a href="#Write-Barrier定义" class="headerlink" title="Write Barrier定义"></a>Write Barrier定义</h3><p>如果store操作把一个老年代的引用指向了一个新的object(一般在年轻代中),系统必须保证这个位置被记录到remember set中, 这种机制,通常被叫做 <code>write barrier</code> 或者 <code>store check</code></p>
+<p>在非函数式语言中, store操作是很频繁的,所以一个高效的<code>write barrier</code>实现是很必要的.</p>
+<p><code>card marking</code> 是<code>write barrier</code>的一种实现.</p>
+<h3 id="card-marking实现"><a href="#card-marking实现" class="headerlink" title="card marking实现"></a>card marking实现</h3><p>堆被划分为固定大小的<code>card</code>,每个<code>card</code>都关联到一个bit vector中的一个bit. store操作如果改变了这个card中内容,对应的bit会被设置.在垃圾收集时，收集器扫描bit vector，每当找到标记位时，检查对应的堆中相应card中的所有指针。</p>
+<h3 id="HotSpot中的Write-barrier"><a href="#HotSpot中的Write-barrier" class="headerlink" title="HotSpot中的Write barrier"></a>HotSpot中的Write barrier</h3><ul>
+<li><p>dirty card</p>
+<p>card marking方式</p>
+</li>
+<li><p>SATB</p>
+<p>snapshot-at-the-beginning, 被G1收集器采用.</p>
+</li>
+</ul>
+<p>###write barrier + card-table</p>
+<p>首先创建一个称为卡表(card-table)的表。这本质上是一个位数组。每个位指示给定范围的内存是否脏（包含对较低生成对象的写入）。例如。我们可以使用单个位来标记4KB块。</p>
+<p><img src="/Users/sutao/blog/source/_posts/JVM-generational-GC/image_thumb_7.png" alt="image_thumb_7"></p>
+<p>第一次标记仅针对Gen0对象。一旦结束，它会检查卡表以找到Gen1中的脏块。然后，它将该脏块中的每个<strong>对象</strong>视为新根，并使用它标记对象。 </p>
+<p><img src="/Users/sutao/blog/source/_posts/JVM-generational-GC/image_thumb.png" alt="image_thumb"></p>
+<p>##参考链接</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/GC_overview/" data-id="cjpbgxpw90009y8fy2xsxibcb" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/GC/">GC</a></li></ul>
+
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-Java_synchronizer" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
     <a href="/2018/11/22/Java_synchronizer/" class="article-date">
@@ -102,7 +319,55 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/Java_synchronizer/" data-id="cjosax009000crzwkmjhps02x" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/22/Java_synchronizer/" data-id="cjpbgxpwj000iy8fyhtb65bz7" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-BTreeStruct" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/BTreeStruct/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>btree的go实现：<a href="https://github.com/sutoo/btree/blob/master/btree.go" target="_blank" rel="noopener">https://github.com/sutoo/btree/blob/master/btree.go</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Item represents a single object in the tree.</span></span><br><span class="line"><span class="keyword">type</span> Item <span class="keyword">interface</span> &#123;</span><br><span class="line">	<span class="comment">// Less tests whether the current item is less than the given argument.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// This must provide a strict weak ordering.</span></span><br><span class="line">	<span class="comment">// If !a.Less(b) &amp;&amp; !b.Less(a), we treat this to mean a == b (i.e. we can only</span></span><br><span class="line">	<span class="comment">// hold one of either a or b in the tree).</span></span><br><span class="line">	Less(than Item) <span class="keyword">bool</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> items []Item</span><br><span class="line"><span class="comment">// children stores child nodes in a node.</span></span><br><span class="line"><span class="keyword">type</span> children []*node</span><br><span class="line"></span><br><span class="line"><span class="comment">// node is an internal node in a tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// It must at all times maintain the invariant that either</span></span><br><span class="line"><span class="comment">//   * len(children) == 0, len(items) unconstrained</span></span><br><span class="line"><span class="comment">//   * len(children) == len(items) + 1</span></span><br><span class="line"><span class="keyword">type</span> node <span class="keyword">struct</span> &#123;</span><br><span class="line">	items    items</span><br><span class="line">	children children</span><br><span class="line">	cow      *copyOnWriteContext</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// BTree is an implementation of a B-Tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// BTree stores Item instances in an ordered structure, allowing easy insertion,</span></span><br><span class="line"><span class="comment">// removal, and iteration.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Write operations are not safe for concurrent mutation by multiple</span></span><br><span class="line"><span class="comment">// goroutines, but Read operations are.</span></span><br><span class="line"><span class="keyword">type</span> BTree <span class="keyword">struct</span> &#123;</span><br><span class="line">	degree <span class="keyword">int</span></span><br><span class="line">	length <span class="keyword">int</span></span><br><span class="line">	root   *node</span><br><span class="line">	cow    *copyOnWriteContext</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>node是Btree中的一个节点。</p>
+<p>items 表示key的列表， items中的gap对应一个children node。</p>
+<p>###BTree Struct</p>
+<h4 id="方法介绍："><a href="#方法介绍：" class="headerlink" title="方法介绍："></a>方法介绍：</h4><p><code>maxItems</code> degree * 2 -1 ，每个node中，items的最大值。</p>
+<p><code>minItems</code>degree - 1，node中，items的最小值。</p>
+<p>###Btree and B+tree</p>
+<p>Btree:</p>
+<p><img src="image-20180913183329671.png" alt="image-20180913183329671"></p>
+<p>B+tree:</p>
+<p><img src="image-20180913183401336.png" alt="image-20180913183401336"></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/BTreeStruct/" data-id="cjpbgxpvv0001y8fyevotyrzk" class="article-share-link">Share</a>
       
       
     </footer>
@@ -280,7 +545,167 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/DBs_mysql_locks/" data-id="cjosax00p000mrzwkxibstrez" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/22/DBs_mysql_locks/" data-id="cjpbgxpx4000py8fyvkdaaovz" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-consul-simple" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/consul-simple/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/consul-simple/">Consul简介</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Consul"><a href="#Consul" class="headerlink" title="Consul"></a>Consul</h1><h3 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h3><p><strong>10,000 foot view</strong></p>
+<p><img src="consul-arch-420ce04a.png" alt="consul-arch-420ce04a"></p>
+<ul>
+<li>Agent </li>
+</ul>
+<p>Agent是在consul集群上一直运行的后台进程，通过 “consul agent” 启动，可以以两种方式运行：客户端，服务器。上图的每个长方形就是一个Agent。</p>
+<ul>
+<li>Client </li>
+</ul>
+<p>表示Agentl的客户端模式（紫色方块）。是consul节点的一种模式，这种模式下，所有注册到当前节点的服务会被转发到SERVER，本身是<strong>不持久化</strong>这些信息。</p>
+<ul>
+<li>Server</li>
+</ul>
+<p>SERVER表示consul的服务器模式（红色方块）。表明这个consul是个server，这种模式下，功能和CLIENT都一样，唯一不同的是，它会把所有的信息<strong>持久化</strong>的本地，这样遇到故障，信息是可以被保留的。</p>
+<ul>
+<li>Server-Leader</li>
+</ul>
+<p>它和其它SERVER不一样的一点是（红色方块，带LEADER字样的），它需要负责同步注册的信息给其它的SERVER，同时也要负责各个节点的健康监测。</p>
+<ul>
+<li><p>DateCenter</p>
+<p>在consul中，datacenter被定义为：私有，低延迟，高带宽。所以不会跨公网的情况。</p>
+</li>
+</ul>
+<h4 id="server-和client"><a href="#server-和client" class="headerlink" title="server 和client"></a>server 和client</h4><p>还是看下上面的图， 图中有2个数据中心。consul是支持</p>
+<pre><code>**多数据中心**
+</code></pre><p>的。每个DataCenter 包含多个 server 和client， 但是server 可能只有 3到5个，多了的话可能会变慢。因为server间要保持一致性。client没有这样的限制，他们可以成千上万。</p>
+<h4 id="LAN-Gossip-Pool"><a href="#LAN-Gossip-Pool" class="headerlink" title="LAN Gossip Pool"></a>LAN Gossip Pool</h4><p>数据中心中所有的节点，都在一个 gossip protocol中，有2个目的：</p>
+<p>1 新增的节点可以被自动发现。</p>
+<p>2 失效节点的检测是分布式的。（这里可以看下gossip的实现）</p>
+<h4 id="server-leader-的特殊职责"><a href="#server-leader-的特殊职责" class="headerlink" title="server-leader 的特殊职责"></a>server-leader 的特殊职责</h4><p>leader负责处理所有请求和事务。非leader的sercer收到rpc请求的时候，会把它转给leader。</p>
+<h4 id="WAN-gossip-pool"><a href="#WAN-gossip-pool" class="headerlink" title="WAN gossip pool"></a>WAN gossip pool</h4><p>所有DataCenter的server同时也是WAN gossip pool的一部分。与LAN Gossip Pool不同的是： 对公网的高延迟做了优化。</p>
+<p>带来的好处：DataCenter之间可以互相发现，新增一个DateCenter会很简单，join进来就可以。</p>
+<pre><code>同时支持了跨DC的RPC调用，在 failure detection，connection cache，multiplexing等技术的应用，跨DC的调用也不是很慢。
+</code></pre><p>问题： 跨DC调用是可以的，但是数据可能是按DC分片的，怎么解决？</p>
+<p>答： There are some special situations where a limited subset of data can be replicated, such as with Consul’s built-in <a href="https://www.consul.io/docs/guides/acl.html#outages-and-acl-replication" target="_blank" rel="noopener">ACL replication</a> capability, or external tools like <a href="https://github.com/hashicorp/consul-replicate" target="_blank" rel="noopener">consul-replicate</a>.</p>
+<h3 id="一致性"><a href="#一致性" class="headerlink" title="一致性"></a>一致性</h3><h4 id="Raft-in-Consul"><a href="#Raft-in-Consul" class="headerlink" title="Raft in Consul"></a>Raft in Consul</h4><p>只有server节点参与Raft。</p>
+<p>Raft 主要被分成了<code>领导人选举</code>，<code>日志复制</code>和<code>安全</code>三个模块</p>
+<ul>
+<li><strong>领导选举</strong>：一个新的领导人需要被选举出来，当现存的领导人宕机的时候</li>
+<li><strong>日志复制</strong>：领导人必须从客户端接收日志然后复制到集群中的其他节点，并且强制要求其他节点的日志保持和自己相同。</li>
+<li><strong>安全性</strong>：在 Raft 中安全性的关键是在图 3 中展示的状态机安全：如果有任何的服务器节点已经应用了一个确定的日志条目到它的状态机中，那么其他服务器节点不能在同一个日志索引位置应用一个不同的指令。 </li>
+</ul>
+<p>任期在 Raft 算法中充当逻辑时钟的作用</p>
+<p>两种类型的 RPCs。</p>
+<ul>
+<li>请求投票（RequestVote） RPCs 由候选人在选举期间发起 ，</li>
+<li>然后附加条目（AppendEntries）RPCs 由领导人发起，用来复制日志和提供一种心跳机制</li>
+</ul>
+<p>领导者周期性的向所有跟随者发送心跳包来维持自己的权威</p>
+<p>###复制状态机</p>
+<p>复制状态机通常都是基于复制日志实现的，如图 1。每一个服务器存储一个包含一系列指令的日志，并且按照日志的顺序进行执行。每一个日志都按照相同的顺序包含相同的指令，所以每一个服务器都执行相同的指令序列。因为每个状态机都是确定的，每一次执行操作都产生相同的状态和同样的序列。</p>
+<p>保证复制日志相同就是一致性算法的工作了。</p>
+<p><a href="https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md" target="_blank" rel="noopener">https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/consul-simple/" data-id="cjpbgxpwm000ny8fyk5tyzyb1" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-JVM_gc_cms" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/11/22/JVM_gc_cms/" class="article-date">
+  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/11/22/JVM_gc_cms/">JVM GC CMS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>#CMS</p>
+<p>全称 <code>Concurrent Mark Sweep</code></p>
+<p>本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。</p>
+<p>阶段：</p>
+<ul>
+<li><p>初始标记 <strong>Initial Mark</strong>（STW）</p>
+<p>标记GC ROOT和年轻代对象能<strong>直接关联</strong>到的对象。</p>
+<p><img src="/images/g1-06.png" alt="CMS initial mark"></p>
+</li>
+<li><p>并发标记</p>
+<p>由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记</p>
+</li>
+<li><p>并发预清理 <strong>Concurrent Preclean</strong></p>
+<p>JVM将包含变异对象的堆区域（称为“Card”）标记为“脏”</p>
+<p><img src="g1-08.png" alt="g1-08"></p>
+</li>
+<li><p><strong>Concurrent Abortable Preclean</strong></p>
+<p>？？</p>
+</li>
+<li><p><strong>Final Remark </strong>（STW）</p>
+<p>最终标记所有的老年代的存活对象。</p>
+</li>
+<li><p><strong>Concurrent Sweep</strong></p>
+<p>删除未标记的对象并回收它们占用的空间。</p>
+</li>
+</ul>
+<p>###安全点（safepoint）</p>
+<p>程序只有在运行到安全点的时候，才可以暂停下来。<code>HotSpot</code>采用主动中断的方式，让执行线程在运行期轮询是否需要暂停的标志，若需要则中断挂起。</p>
+<h3 id="可达性"><a href="#可达性" class="headerlink" title="可达性"></a>可达性</h3><p>1.本身是根对象。根（root）是指由堆以外空间访问的对象。JVM会将以下对象标记为根：</p>
+<p>a.虚拟机栈（栈帧中的本地变量表）中引用的对象；</p>
+<p>b.方法区中的类静态属性引用的对象；</p>
+<p>c.方法区中的常量引用的对象；</p>
+<p>d.本地方法栈中JNI的引用对象。</p>
+<p>2.被一个可达的对象引用。</p>
+<p>参考：<a href="https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep" target="_blank" rel="noopener">https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep</a></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/11/22/JVM_gc_cms/" data-id="cjpbgxpwh000fy8fyaw4h9v7q" class="article-share-link">Share</a>
       
       
     </footer>
@@ -393,215 +818,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/hystrix/" data-id="cjosax00d000hrzwkrup4p519" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-consul-simple" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/22/consul-simple/" class="article-date">
-  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/22/consul-simple/">Consul简介</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h1 id="Consul"><a href="#Consul" class="headerlink" title="Consul"></a>Consul</h1><h3 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h3><p><strong>10,000 foot view</strong></p>
-<p><img src="consul-arch-420ce04a.png" alt="consul-arch-420ce04a"></p>
-<ul>
-<li>Agent </li>
-</ul>
-<p>Agent是在consul集群上一直运行的后台进程，通过 “consul agent” 启动，可以以两种方式运行：客户端，服务器。上图的每个长方形就是一个Agent。</p>
-<ul>
-<li>Client </li>
-</ul>
-<p>表示Agentl的客户端模式（紫色方块）。是consul节点的一种模式，这种模式下，所有注册到当前节点的服务会被转发到SERVER，本身是<strong>不持久化</strong>这些信息。</p>
-<ul>
-<li>Server</li>
-</ul>
-<p>SERVER表示consul的服务器模式（红色方块）。表明这个consul是个server，这种模式下，功能和CLIENT都一样，唯一不同的是，它会把所有的信息<strong>持久化</strong>的本地，这样遇到故障，信息是可以被保留的。</p>
-<ul>
-<li>Server-Leader</li>
-</ul>
-<p>它和其它SERVER不一样的一点是（红色方块，带LEADER字样的），它需要负责同步注册的信息给其它的SERVER，同时也要负责各个节点的健康监测。</p>
-<ul>
-<li><p>DateCenter</p>
-<p>在consul中，datacenter被定义为：私有，低延迟，高带宽。所以不会跨公网的情况。</p>
-</li>
-</ul>
-<h4 id="server-和client"><a href="#server-和client" class="headerlink" title="server 和client"></a>server 和client</h4><p>还是看下上面的图， 图中有2个数据中心。consul是支持</p>
-<pre><code>**多数据中心**
-</code></pre><p>的。每个DataCenter 包含多个 server 和client， 但是server 可能只有 3到5个，多了的话可能会变慢。因为server间要保持一致性。client没有这样的限制，他们可以成千上万。</p>
-<h4 id="LAN-Gossip-Pool"><a href="#LAN-Gossip-Pool" class="headerlink" title="LAN Gossip Pool"></a>LAN Gossip Pool</h4><p>数据中心中所有的节点，都在一个 gossip protocol中，有2个目的：</p>
-<p>1 新增的节点可以被自动发现。</p>
-<p>2 失效节点的检测是分布式的。（这里可以看下gossip的实现）</p>
-<h4 id="server-leader-的特殊职责"><a href="#server-leader-的特殊职责" class="headerlink" title="server-leader 的特殊职责"></a>server-leader 的特殊职责</h4><p>leader负责处理所有请求和事务。非leader的sercer收到rpc请求的时候，会把它转给leader。</p>
-<h4 id="WAN-gossip-pool"><a href="#WAN-gossip-pool" class="headerlink" title="WAN gossip pool"></a>WAN gossip pool</h4><p>所有DataCenter的server同时也是WAN gossip pool的一部分。与LAN Gossip Pool不同的是： 对公网的高延迟做了优化。</p>
-<p>带来的好处：DataCenter之间可以互相发现，新增一个DateCenter会很简单，join进来就可以。</p>
-<pre><code>同时支持了跨DC的RPC调用，在 failure detection，connection cache，multiplexing等技术的应用，跨DC的调用也不是很慢。
-</code></pre><p>问题： 跨DC调用是可以的，但是数据可能是按DC分片的，怎么解决？</p>
-<p>答： There are some special situations where a limited subset of data can be replicated, such as with Consul’s built-in <a href="https://www.consul.io/docs/guides/acl.html#outages-and-acl-replication" target="_blank" rel="noopener">ACL replication</a> capability, or external tools like <a href="https://github.com/hashicorp/consul-replicate" target="_blank" rel="noopener">consul-replicate</a>.</p>
-<h3 id="一致性"><a href="#一致性" class="headerlink" title="一致性"></a>一致性</h3><h4 id="Raft-in-Consul"><a href="#Raft-in-Consul" class="headerlink" title="Raft in Consul"></a>Raft in Consul</h4><p>只有server节点参与Raft。</p>
-<p>Raft 主要被分成了<code>领导人选举</code>，<code>日志复制</code>和<code>安全</code>三个模块</p>
-<ul>
-<li><strong>领导选举</strong>：一个新的领导人需要被选举出来，当现存的领导人宕机的时候</li>
-<li><strong>日志复制</strong>：领导人必须从客户端接收日志然后复制到集群中的其他节点，并且强制要求其他节点的日志保持和自己相同。</li>
-<li><strong>安全性</strong>：在 Raft 中安全性的关键是在图 3 中展示的状态机安全：如果有任何的服务器节点已经应用了一个确定的日志条目到它的状态机中，那么其他服务器节点不能在同一个日志索引位置应用一个不同的指令。 </li>
-</ul>
-<p>任期在 Raft 算法中充当逻辑时钟的作用</p>
-<p>两种类型的 RPCs。</p>
-<ul>
-<li>请求投票（RequestVote） RPCs 由候选人在选举期间发起 ，</li>
-<li>然后附加条目（AppendEntries）RPCs 由领导人发起，用来复制日志和提供一种心跳机制</li>
-</ul>
-<p>领导者周期性的向所有跟随者发送心跳包来维持自己的权威</p>
-<p>###复制状态机</p>
-<p>复制状态机通常都是基于复制日志实现的，如图 1。每一个服务器存储一个包含一系列指令的日志，并且按照日志的顺序进行执行。每一个日志都按照相同的顺序包含相同的指令，所以每一个服务器都执行相同的指令序列。因为每个状态机都是确定的，每一次执行操作都产生相同的状态和同样的序列。</p>
-<p>保证复制日志相同就是一致性算法的工作了。</p>
-<p><a href="https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md" target="_blank" rel="noopener">https://github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/consul-simple/" data-id="cjosax00c000grzwkxv1pkk1p" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-BTreeStruct" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/22/BTreeStruct/" class="article-date">
-  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>btree的go实现：<a href="https://github.com/sutoo/btree/blob/master/btree.go" target="_blank" rel="noopener">https://github.com/sutoo/btree/blob/master/btree.go</a></p>
-<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Item represents a single object in the tree.</span></span><br><span class="line"><span class="keyword">type</span> Item <span class="keyword">interface</span> &#123;</span><br><span class="line">	<span class="comment">// Less tests whether the current item is less than the given argument.</span></span><br><span class="line">	<span class="comment">//</span></span><br><span class="line">	<span class="comment">// This must provide a strict weak ordering.</span></span><br><span class="line">	<span class="comment">// If !a.Less(b) &amp;&amp; !b.Less(a), we treat this to mean a == b (i.e. we can only</span></span><br><span class="line">	<span class="comment">// hold one of either a or b in the tree).</span></span><br><span class="line">	Less(than Item) <span class="keyword">bool</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> items []Item</span><br><span class="line"><span class="comment">// children stores child nodes in a node.</span></span><br><span class="line"><span class="keyword">type</span> children []*node</span><br><span class="line"></span><br><span class="line"><span class="comment">// node is an internal node in a tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// It must at all times maintain the invariant that either</span></span><br><span class="line"><span class="comment">//   * len(children) == 0, len(items) unconstrained</span></span><br><span class="line"><span class="comment">//   * len(children) == len(items) + 1</span></span><br><span class="line"><span class="keyword">type</span> node <span class="keyword">struct</span> &#123;</span><br><span class="line">	items    items</span><br><span class="line">	children children</span><br><span class="line">	cow      *copyOnWriteContext</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// BTree is an implementation of a B-Tree.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// BTree stores Item instances in an ordered structure, allowing easy insertion,</span></span><br><span class="line"><span class="comment">// removal, and iteration.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// Write operations are not safe for concurrent mutation by multiple</span></span><br><span class="line"><span class="comment">// goroutines, but Read operations are.</span></span><br><span class="line"><span class="keyword">type</span> BTree <span class="keyword">struct</span> &#123;</span><br><span class="line">	degree <span class="keyword">int</span></span><br><span class="line">	length <span class="keyword">int</span></span><br><span class="line">	root   *node</span><br><span class="line">	cow    *copyOnWriteContext</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>node是Btree中的一个节点。</p>
-<p>items 表示key的列表， items中的gap对应一个children node。</p>
-<p>###BTree Struct</p>
-<h4 id="方法介绍："><a href="#方法介绍：" class="headerlink" title="方法介绍："></a>方法介绍：</h4><p><code>maxItems</code> degree * 2 -1 ，每个node中，items的最大值。</p>
-<p><code>minItems</code>degree - 1，node中，items的最小值。</p>
-<p>###Btree and B+tree</p>
-<p>Btree:</p>
-<p><img src="image-20180913183329671.png" alt="image-20180913183329671"></p>
-<p>B+tree:</p>
-<p><img src="image-20180913183401336.png" alt="image-20180913183401336"></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/BTreeStruct/" data-id="cjosawzzq0001rzwko93ok5km" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-JVM_gc_cms" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/11/22/JVM_gc_cms/" class="article-date">
-  <time datetime="2018-11-22T06:24:29.000Z" itemprop="datePublished">2018-11-22</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/11/22/JVM_gc_cms/">JVM GC CMS</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>#CMS</p>
-<p>全称 <code>Concurrent Mark Sweep</code></p>
-<p>本质是标记-清除算法，针对老年代的GC。进行了改进，缩短了STW的时间。</p>
-<p>阶段：</p>
-<ul>
-<li><p>初始标记 <strong>Initial Mark</strong>（STW）</p>
-<p>标记GC ROOT和年轻代对象能<strong>直接关联</strong>到的对象。</p>
-<p><img src="/images/g1-06.png" alt="CMS initial mark"></p>
-</li>
-<li><p>并发标记</p>
-<p>由前阶段标记过的对象出发，所有可到达的对象都在本阶段中标记。 GC线程和用户线程并发执行。Old代不是所有存活对象会被标记</p>
-</li>
-<li><p>并发预清理 <strong>Concurrent Preclean</strong></p>
-<p>JVM将包含变异对象的堆区域（称为“Card”）标记为“脏”</p>
-<p><img src="g1-08.png" alt="g1-08"></p>
-</li>
-<li><p><strong>Concurrent Abortable Preclean</strong></p>
-<p>？？</p>
-</li>
-<li><p><strong>Final Remark </strong>（STW）</p>
-<p>最终标记所有的老年代的存活对象。</p>
-</li>
-<li><p><strong>Concurrent Sweep</strong></p>
-<p>删除未标记的对象并回收它们占用的空间。</p>
-</li>
-</ul>
-<p>###安全点（safepoint）</p>
-<p>程序只有在运行到安全点的时候，才可以暂停下来。<code>HotSpot</code>采用主动中断的方式，让执行线程在运行期轮询是否需要暂停的标志，若需要则中断挂起。</p>
-<h3 id="可达性"><a href="#可达性" class="headerlink" title="可达性"></a>可达性</h3><p>1.本身是根对象。根（root）是指由堆以外空间访问的对象。JVM会将以下对象标记为根：</p>
-<p>a.虚拟机栈（栈帧中的本地变量表）中引用的对象；</p>
-<p>b.方法区中的类静态属性引用的对象；</p>
-<p>c.方法区中的常量引用的对象；</p>
-<p>d.本地方法栈中JNI的引用对象。</p>
-<p>2.被一个可达的对象引用。</p>
-<p>参考：<a href="https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep" target="_blank" rel="noopener">https://plumbr.io/handbook/garbage-collection-algorithms-implementations/concurrent-mark-and-sweep</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/22/JVM_gc_cms/" data-id="cjosax0060008rzwkrv2p66kp" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/22/hystrix/" data-id="cjpbgxpxe000uy8fyv3gp27p7" class="article-share-link">Share</a>
       
       
     </footer>
@@ -642,7 +859,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/09/Observable_basic/" data-id="cjosax00a000drzwkxpzznv6q" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/09/Observable_basic/" data-id="cjpbgxpwl000ly8fy4htv0qcw" class="article-share-link">Share</a>
       
       
     </footer>
@@ -720,133 +937,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/11/09/Histograms/" data-id="cjosax0070009rzwkl0tmvb0k" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-BFS_and_DFS" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/10/30/BFS_and_DFS/" class="article-date">
-  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/10/30/BFS_and_DFS/">BFS and DFS</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="如何表示一个图"><a href="#如何表示一个图" class="headerlink" title="如何表示一个图"></a>如何表示一个图</h2><p><strong>临接列表</strong>(adjacency lists)和<strong>临接矩阵</strong>(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。</p>
-<h3 id="广度优先搜索-Breadth-first-search"><a href="#广度优先搜索-Breadth-first-search" class="headerlink" title="广度优先搜索 Breadth-first search"></a>广度优先搜索 Breadth-first search</h3><p>最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shortest-paths)都使用了这个想法。</p>
-<p>广度优先搜索在进一步遍历图中顶点之前，先访问当前顶点的所有邻接结点。  </p>
-<p>a .首先选择一个顶点作为起始结点，并将其染成灰色，其余结点为白色。 </p>
-<p>b. 将起始结点放入队列中。  </p>
-<p>c. 从队列首部选出一个顶点，并找出所有与之邻接的结点，将找到的邻接结点放入队列尾部，将已访问过结点涂成黑色，没访问过的结点是白色。如果顶点的颜色是灰色，表示已经发现并且放入了队列，如果顶点的颜色是白色，表示还没有发现  </p>
-<p>d. 按照同样的方法处理队列中的下一个结点。  基本就是出队的顶点变成黑色，在队列里的是灰色，还没入队的是白色。 </p>
-<p>算法导论中的伪代码</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//图G，从s开始广度优先遍历</span></span><br><span class="line">BFS(G, s)</span><br><span class="line">  <span class="comment">//初始化s之外的所有其他节点</span></span><br><span class="line">  <span class="keyword">for</span> s 以外的所有定点 u:</span><br><span class="line">    u.color = WHITE</span><br><span class="line">    u.d = -<span class="number">1</span></span><br><span class="line">    u.p = NIL <span class="comment">//p代表父节点</span></span><br><span class="line">  <span class="comment">//初始化s</span></span><br><span class="line">  s.color = GRAY</span><br><span class="line">  s.d = <span class="number">0</span></span><br><span class="line">  s.p = NIL</span><br><span class="line">  enqueue(s)</span><br><span class="line">  <span class="keyword">while</span> (u = dequeue()) != NIL</span><br><span class="line">    <span class="keyword">for</span> v in u的所有临接节点:</span><br><span class="line">      <span class="keyword">if</span> v.color == WHITE</span><br><span class="line">        v.color = GRAY <span class="comment">//入队列前设置为灰</span></span><br><span class="line">        v.d = u.d + <span class="number">1</span></span><br><span class="line">        v.p = u</span><br><span class="line">        enqueue(v)</span><br><span class="line">     u.color = BLACK <span class="comment">//访问过的设置为黑</span></span><br></pre></td></tr></table></figure>
-<p>因为每个节点都入队一次，而且，每个节点出来之后，都会对他的临接节点进行访问。所有 最后的时间复杂度为O(E+V)</p>
-<p>在《算法》中，使用marked[]来代替对节点上色，用edgeTo[]代替父节点</p>
-<p>参考：<a href="https://www.cnblogs.com/xiehongfeng100/p/4461772.html" target="_blank" rel="noopener">https://www.cnblogs.com/xiehongfeng100/p/4461772.html</a></p>
-<h3 id="深度优先搜索-Depth-first-seatch"><a href="#深度优先搜索-Depth-first-seatch" class="headerlink" title="深度优先搜索 Depth-first-seatch"></a>深度优先搜索 Depth-first-seatch</h3><p>深度优先搜索在搜索过程中访问某个顶点后，需要递归地访问此顶点的所有未访问过的相邻顶点。  </p>
-<p>初始条件下所有节点为白色，选择一个作为起始顶点，按照如下步骤遍历：</p>
-<p>a. 选择起始顶点涂成灰色，表示还未访问  </p>
-<p>b. 从该顶点的邻接顶点中选择一个，继续这个过程（即再寻找邻接结点的邻接结点），一直深入下去，直到一个顶点没有邻接结点了，涂黑它，表示访问过了  </p>
-<p>c. 回溯到这个涂黑顶点的上一层顶点，再找这个上一层顶点的其余邻接结点，继续如上操作，如果所有邻接结点往下都访问过了，就把自己涂黑，再回溯到更上一层。  </p>
-<p>d. 上一层继续做如上操作，知道所有顶点都访问过。 </p>
-<p>算法导论中的实现：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">DFS(G)</span><br><span class="line">    <span class="comment">//对所有节点做初始化</span></span><br><span class="line">	<span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">    	u.color = WHITE</span><br><span class="line">        u.p = NIL</span><br><span class="line">    <span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">		<span class="keyword">if</span> u.color == WHITE</span><br><span class="line">			DFS-Visit(G,u)  </span><br><span class="line">            </span><br><span class="line">GFS-Visit(G,u)</span><br><span class="line">    <span class="comment">//先设置为灰色</span></span><br><span class="line">	u.color = GRAY</span><br><span class="line">	<span class="comment">//尝试所有的临接节点，</span></span><br><span class="line">	<span class="keyword">for</span> v in u的临接节点： <span class="comment">//adj[v]次</span></span><br><span class="line">		<span class="keyword">if</span> v.color == WHITE</span><br><span class="line">			v.p = u</span><br><span class="line">			DFS-Visit(G, v)</span><br><span class="line">    <span class="comment">//在自己的所有临接节点都访问完成后，设置为黑色</span></span><br><span class="line">    u.color = BLACK</span><br></pre></td></tr></table></figure>
-<p>DFS的时间复杂度为O(V+E)。</p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/10/30/BFS_and_DFS/" data-id="cjosawzzm0000rzwkemaxbyqv" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-rocketmq_design" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/10/30/rocketmq_design/" class="article-date">
-  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/10/30/rocketmq_design/">rocketMQ design</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h3 id="Motivation"><a href="#Motivation" class="headerlink" title="Motivation"></a>Motivation</h3><h3 id="Persistence"><a href="#Persistence" class="headerlink" title="Persistence"></a>Persistence</h3><p>和kafka的思想一样，利用顺序IO。</p>
-<p>但是，当一个broker上有多个partition的时候，顺序又变成了随机。</p>
-<p>RocketMQ为了解决这个问题，采用了单一的日志文件。即把一台机器上的所有的topic的所有queue的消息都存放在同一个文件里面。</p>
-<p>先写入Commit log文件里面（单个文件），然后有后台线程异步的同步到ConsumeQueue（也是一个文件），再由Consumer进行消费。这是RocketMQ的方案。</p>
-<h3 id="4-2-Persistence"><a href="#4-2-Persistence" class="headerlink" title="4.2 Persistence"></a><a href="https://kafka.apache.org/documentation.html#persistence" target="_blank" rel="noopener">4.2 Persistence</a></h3><blockquote>
-<p>As a result the performance of linear writes on a <a href="http://en.wikipedia.org/wiki/Non-RAID_drive_architectures" target="_blank" rel="noopener">JBOD</a> configuration with six 7200rpm SATA RAID-5 array is about 600MB/sec but the performance of random writes is only about 100k/sec—a difference of over 6000X.</p>
-</blockquote>
-<p>磁盘的顺序写和随机写，性能相差6000倍，<a href="http://deliveryimages.acm.org/10.1145/1570000/1563874/jacobs3.jpg" target="_blank" rel="noopener">sequential disk access can in some cases be faster than random memory access!</a></p>
-<ul>
-<li><p>OS pagecache</p>
-<p>现代操作系统很乐于使用所有的空闲内存来做disk caching。所有的磁盘读写都会通过这些cache进行。</p>
-</li>
-<li><p>Furthermore, we are building on top of the JVM, and anyone who has spent any time with Java memory usage knows two things:</p>
-<pre><code> The memory overhead of objects is very high, often doubling the size of the data stored (or worse).
-
-Java garbage collection becomes increasingly fiddly and slow as the in-heap data increases.
-</code></pre></li>
-</ul>
-<p>基于上面的两个原因， 得出的结论：</p>
-<blockquote>
-<p>using the filesystem and relying on pagecache is superior to maintaining an in-memory cache</p>
-</blockquote>
-<p>直接使用带pagecache的OS filesystem 甚至性能会比使用内存cache要更好。</p>
-<p>This style of pagecache-centric design is described in an <a href="http://varnish-cache.org/wiki/ArchitectNotes" target="_blank" rel="noopener">article</a> on the design of Varnish</p>
-<h3 id="4-3-Efficiency"><a href="#4-3-Efficiency" class="headerlink" title="4.3 Efficiency"></a><a href="https://kafka.apache.org/documentation.html#maximizingefficiency" target="_blank" rel="noopener">4.3 Efficiency</a></h3><p>For more background on the sendfile and zero-copy support in Java, see this <a href="http://www.ibm.com/developerworks/linux/library/j-zerocopy" target="_blank" rel="noopener">article</a>. </p>
-<h3 id="4-4-The-Producer"><a href="#4-4-The-Producer" class="headerlink" title="4.4 The Producer"></a><a href="https://kafka.apache.org/documentation.html#theproducer" target="_blank" rel="noopener">4.4 The Producer</a></h3><p>任意一个broker都保存着metadate，关于哪些节点是活着的，还有一个topic的partition的leader是谁？所以producer可以找到对应的leader，直接向其发送消息。</p>
-<h3 id="4-5-The-Consumer"><a href="#4-5-The-Consumer" class="headerlink" title="4.5 The Consumer"></a><a href="https://kafka.apache.org/documentation.html#theconsumer" target="_blank" rel="noopener">4.5 The Consumer</a></h3><p>consumer执行‘fetch’操作，同时带着offset，来向leader拉去消息。</p>
-<p>offset：</p>
-<p>一般的队列都会在broker端记录consumer消费的位置，这样做可以及时的删除消费掉的消息，但是维护这个位置是很费事的，还需要consumer返回ack。</p>
-<p>kafka也会记录一个offset，表示下一个可以消费的消息的位置，而且可以‘倒带’，即重现消费之前消费过的消息。</p>
-<h3 id="4-6-Message-Delivery-Semantics"><a href="#4-6-Message-Delivery-Semantics" class="headerlink" title="4.6 Message Delivery Semantics"></a><a href="https://kafka.apache.org/documentation.html#semantics" target="_blank" rel="noopener">4.6 Message Delivery Semantics</a></h3><h3 id="4-7-Replication"><a href="#4-7-Replication" class="headerlink" title="4.7 Replication"></a><a href="https://kafka.apache.org/documentation.html#replication" target="_blank" rel="noopener">4.7 Replication</a></h3><ul>
-<li></li>
-</ul>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/10/30/rocketmq_design/" data-id="cjosax00e000jrzwkt9lrph5g" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/11/09/Histograms/" data-id="cjpbgxpwf000dy8fyrjk3eldp" class="article-share-link">Share</a>
       
       
     </footer>
@@ -868,18 +959,39 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
           <aside id="sidebar">
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
 
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/GC/">GC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
 
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/GC/" style="font-size: 20px;">GC</a> <a href="/tags/JVM/" style="font-size: 10px;">JVM</a>
+    </div>
+  </div>
+
   
     
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
     </div>
   </div>
 
@@ -892,23 +1004,23 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       <ul>
         
           <li>
+            <a href="/2018/12/04/hotspot_jvm_GC_CMS/">hotspot_jvm_GC_CMS</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/GC_overview/">GC_overview</a>
+          </li>
+        
+          <li>
             <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
           </li>
         
           <li>
-            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
-          </li>
-        
-          <li>
-            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
-          </li>
-        
-          <li>
-            <a href="/2018/11/22/consul-simple/">Consul简介</a>
-          </li>
-        
-          <li>
             <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
           </li>
         
       </ul>

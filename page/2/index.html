@@ -62,6 +62,132 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-rocketmq_design" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/rocketmq_design/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/10/30/rocketmq_design/">rocketMQ design</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="Motivation"><a href="#Motivation" class="headerlink" title="Motivation"></a>Motivation</h3><h3 id="Persistence"><a href="#Persistence" class="headerlink" title="Persistence"></a>Persistence</h3><p>和kafka的思想一样，利用顺序IO。</p>
+<p>但是，当一个broker上有多个partition的时候，顺序又变成了随机。</p>
+<p>RocketMQ为了解决这个问题，采用了单一的日志文件。即把一台机器上的所有的topic的所有queue的消息都存放在同一个文件里面。</p>
+<p>先写入Commit log文件里面（单个文件），然后有后台线程异步的同步到ConsumeQueue（也是一个文件），再由Consumer进行消费。这是RocketMQ的方案。</p>
+<h3 id="4-2-Persistence"><a href="#4-2-Persistence" class="headerlink" title="4.2 Persistence"></a><a href="https://kafka.apache.org/documentation.html#persistence" target="_blank" rel="noopener">4.2 Persistence</a></h3><blockquote>
+<p>As a result the performance of linear writes on a <a href="http://en.wikipedia.org/wiki/Non-RAID_drive_architectures" target="_blank" rel="noopener">JBOD</a> configuration with six 7200rpm SATA RAID-5 array is about 600MB/sec but the performance of random writes is only about 100k/sec—a difference of over 6000X.</p>
+</blockquote>
+<p>磁盘的顺序写和随机写，性能相差6000倍，<a href="http://deliveryimages.acm.org/10.1145/1570000/1563874/jacobs3.jpg" target="_blank" rel="noopener">sequential disk access can in some cases be faster than random memory access!</a></p>
+<ul>
+<li><p>OS pagecache</p>
+<p>现代操作系统很乐于使用所有的空闲内存来做disk caching。所有的磁盘读写都会通过这些cache进行。</p>
+</li>
+<li><p>Furthermore, we are building on top of the JVM, and anyone who has spent any time with Java memory usage knows two things:</p>
+<pre><code> The memory overhead of objects is very high, often doubling the size of the data stored (or worse).
+
+Java garbage collection becomes increasingly fiddly and slow as the in-heap data increases.
+</code></pre></li>
+</ul>
+<p>基于上面的两个原因， 得出的结论：</p>
+<blockquote>
+<p>using the filesystem and relying on pagecache is superior to maintaining an in-memory cache</p>
+</blockquote>
+<p>直接使用带pagecache的OS filesystem 甚至性能会比使用内存cache要更好。</p>
+<p>This style of pagecache-centric design is described in an <a href="http://varnish-cache.org/wiki/ArchitectNotes" target="_blank" rel="noopener">article</a> on the design of Varnish</p>
+<h3 id="4-3-Efficiency"><a href="#4-3-Efficiency" class="headerlink" title="4.3 Efficiency"></a><a href="https://kafka.apache.org/documentation.html#maximizingefficiency" target="_blank" rel="noopener">4.3 Efficiency</a></h3><p>For more background on the sendfile and zero-copy support in Java, see this <a href="http://www.ibm.com/developerworks/linux/library/j-zerocopy" target="_blank" rel="noopener">article</a>. </p>
+<h3 id="4-4-The-Producer"><a href="#4-4-The-Producer" class="headerlink" title="4.4 The Producer"></a><a href="https://kafka.apache.org/documentation.html#theproducer" target="_blank" rel="noopener">4.4 The Producer</a></h3><p>任意一个broker都保存着metadate，关于哪些节点是活着的，还有一个topic的partition的leader是谁？所以producer可以找到对应的leader，直接向其发送消息。</p>
+<h3 id="4-5-The-Consumer"><a href="#4-5-The-Consumer" class="headerlink" title="4.5 The Consumer"></a><a href="https://kafka.apache.org/documentation.html#theconsumer" target="_blank" rel="noopener">4.5 The Consumer</a></h3><p>consumer执行‘fetch’操作，同时带着offset，来向leader拉去消息。</p>
+<p>offset：</p>
+<p>一般的队列都会在broker端记录consumer消费的位置，这样做可以及时的删除消费掉的消息，但是维护这个位置是很费事的，还需要consumer返回ack。</p>
+<p>kafka也会记录一个offset，表示下一个可以消费的消息的位置，而且可以‘倒带’，即重现消费之前消费过的消息。</p>
+<h3 id="4-6-Message-Delivery-Semantics"><a href="#4-6-Message-Delivery-Semantics" class="headerlink" title="4.6 Message Delivery Semantics"></a><a href="https://kafka.apache.org/documentation.html#semantics" target="_blank" rel="noopener">4.6 Message Delivery Semantics</a></h3><h3 id="4-7-Replication"><a href="#4-7-Replication" class="headerlink" title="4.7 Replication"></a><a href="https://kafka.apache.org/documentation.html#replication" target="_blank" rel="noopener">4.7 Replication</a></h3><ul>
+<li></li>
+</ul>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/rocketmq_design/" data-id="cjpbgxpxg000xy8fycefmazia" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
+    <article id="post-BFS_and_DFS" class="article article-type-post" itemscope="" itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2018/10/30/BFS_and_DFS/" class="article-date">
+  <time datetime="2018-10-29T16:00:00.000Z" itemprop="datePublished">2018-10-30</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2018/10/30/BFS_and_DFS/">BFS and DFS</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="如何表示一个图"><a href="#如何表示一个图" class="headerlink" title="如何表示一个图"></a>如何表示一个图</h2><p><strong>临接列表</strong>(adjacency lists)和<strong>临接矩阵</strong>(adjacency matrix) ,有向图和无向图都可以用这样的方式来表示。</p>
+<h3 id="广度优先搜索-Breadth-first-search"><a href="#广度优先搜索-Breadth-first-search" class="headerlink" title="广度优先搜索 Breadth-first search"></a>广度优先搜索 Breadth-first search</h3><p>最简单的图的遍历算法之一，而且还是很多重要的其他算法的基础。Prim的最小生成树（minimum-spanning-tree) 和 Dijksra的最短路径算法（single-source shortest-paths)都使用了这个想法。</p>
+<p>广度优先搜索在进一步遍历图中顶点之前，先访问当前顶点的所有邻接结点。  </p>
+<p>a .首先选择一个顶点作为起始结点，并将其染成灰色，其余结点为白色。 </p>
+<p>b. 将起始结点放入队列中。  </p>
+<p>c. 从队列首部选出一个顶点，并找出所有与之邻接的结点，将找到的邻接结点放入队列尾部，将已访问过结点涂成黑色，没访问过的结点是白色。如果顶点的颜色是灰色，表示已经发现并且放入了队列，如果顶点的颜色是白色，表示还没有发现  </p>
+<p>d. 按照同样的方法处理队列中的下一个结点。  基本就是出队的顶点变成黑色，在队列里的是灰色，还没入队的是白色。 </p>
+<p>算法导论中的伪代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//图G，从s开始广度优先遍历</span></span><br><span class="line">BFS(G, s)</span><br><span class="line">  <span class="comment">//初始化s之外的所有其他节点</span></span><br><span class="line">  <span class="keyword">for</span> s 以外的所有定点 u:</span><br><span class="line">    u.color = WHITE</span><br><span class="line">    u.d = -<span class="number">1</span></span><br><span class="line">    u.p = NIL <span class="comment">//p代表父节点</span></span><br><span class="line">  <span class="comment">//初始化s</span></span><br><span class="line">  s.color = GRAY</span><br><span class="line">  s.d = <span class="number">0</span></span><br><span class="line">  s.p = NIL</span><br><span class="line">  enqueue(s)</span><br><span class="line">  <span class="keyword">while</span> (u = dequeue()) != NIL</span><br><span class="line">    <span class="keyword">for</span> v in u的所有临接节点:</span><br><span class="line">      <span class="keyword">if</span> v.color == WHITE</span><br><span class="line">        v.color = GRAY <span class="comment">//入队列前设置为灰</span></span><br><span class="line">        v.d = u.d + <span class="number">1</span></span><br><span class="line">        v.p = u</span><br><span class="line">        enqueue(v)</span><br><span class="line">     u.color = BLACK <span class="comment">//访问过的设置为黑</span></span><br></pre></td></tr></table></figure>
+<p>因为每个节点都入队一次，而且，每个节点出来之后，都会对他的临接节点进行访问。所有 最后的时间复杂度为O(E+V)</p>
+<p>在《算法》中，使用marked[]来代替对节点上色，用edgeTo[]代替父节点</p>
+<p>参考：<a href="https://www.cnblogs.com/xiehongfeng100/p/4461772.html" target="_blank" rel="noopener">https://www.cnblogs.com/xiehongfeng100/p/4461772.html</a></p>
+<h3 id="深度优先搜索-Depth-first-seatch"><a href="#深度优先搜索-Depth-first-seatch" class="headerlink" title="深度优先搜索 Depth-first-seatch"></a>深度优先搜索 Depth-first-seatch</h3><p>深度优先搜索在搜索过程中访问某个顶点后，需要递归地访问此顶点的所有未访问过的相邻顶点。  </p>
+<p>初始条件下所有节点为白色，选择一个作为起始顶点，按照如下步骤遍历：</p>
+<p>a. 选择起始顶点涂成灰色，表示还未访问  </p>
+<p>b. 从该顶点的邻接顶点中选择一个，继续这个过程（即再寻找邻接结点的邻接结点），一直深入下去，直到一个顶点没有邻接结点了，涂黑它，表示访问过了  </p>
+<p>c. 回溯到这个涂黑顶点的上一层顶点，再找这个上一层顶点的其余邻接结点，继续如上操作，如果所有邻接结点往下都访问过了，就把自己涂黑，再回溯到更上一层。  </p>
+<p>d. 上一层继续做如上操作，知道所有顶点都访问过。 </p>
+<p>算法导论中的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">DFS(G)</span><br><span class="line">    <span class="comment">//对所有节点做初始化</span></span><br><span class="line">	<span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">    	u.color = WHITE</span><br><span class="line">        u.p = NIL</span><br><span class="line">    <span class="keyword">for</span> u in G.V: <span class="comment">// O(V)</span></span><br><span class="line">		<span class="keyword">if</span> u.color == WHITE</span><br><span class="line">			DFS-Visit(G,u)  </span><br><span class="line">            </span><br><span class="line">GFS-Visit(G,u)</span><br><span class="line">    <span class="comment">//先设置为灰色</span></span><br><span class="line">	u.color = GRAY</span><br><span class="line">	<span class="comment">//尝试所有的临接节点，</span></span><br><span class="line">	<span class="keyword">for</span> v in u的临接节点： <span class="comment">//adj[v]次</span></span><br><span class="line">		<span class="keyword">if</span> v.color == WHITE</span><br><span class="line">			v.p = u</span><br><span class="line">			DFS-Visit(G, v)</span><br><span class="line">    <span class="comment">//在自己的所有临接节点都访问完成后，设置为黑色</span></span><br><span class="line">    u.color = BLACK</span><br></pre></td></tr></table></figure>
+<p>DFS的时间复杂度为O(V+E)。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://yoursite.com/2018/10/30/BFS_and_DFS/" data-id="cjpbgxpvz0003y8fyfz4brlx5" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-Kafka_design" class="article article-type-post" itemscope="" itemprop="blogPost">
   <div class="article-meta">
     <a href="/2018/10/30/Kafka_design/" class="article-date">
@@ -201,7 +327,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/10/30/Kafka_design/" data-id="cjosax00r000orzwkgf4kup57" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/10/30/Kafka_design/" data-id="cjpbgxpxd000sy8fyokldfu0k" class="article-share-link">Share</a>
       
       
     </footer>
@@ -266,7 +392,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/08/14/Black_Red_tree/" data-id="cjosawzzs0002rzwkr0h9yfuo" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/08/14/Black_Red_tree/" data-id="cjpbgxpw00004y8fy1kb612vr" class="article-share-link">Share</a>
       
       
     </footer>
@@ -328,7 +454,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/08/02/JVM_max_thread/" data-id="cjosax008000arzwkh8oydwg6" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/08/02/JVM_max_thread/" data-id="cjpbgxpwg000ey8fyg8jdhycu" class="article-share-link">Share</a>
       
       
     </footer>
@@ -398,7 +524,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/07/25/mysql_explain/" data-id="cjosax00e000irzwk44trzj09" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/07/25/mysql_explain/" data-id="cjpbgxpxg000wy8fyxp0isdq0" class="article-share-link">Share</a>
       
       
     </footer>
@@ -491,7 +617,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/07/15/FeignClient/" data-id="cjosax00o000lrzwkum38ojij" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/07/15/FeignClient/" data-id="cjpbgxpx5000qy8fyuh4sdrtd" class="article-share-link">Share</a>
       
       
     </footer>
@@ -574,7 +700,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/07/02/HTTP-2/" data-id="cjosax0050007rzwkf5mbksic" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/07/02/HTTP-2/" data-id="cjpbgxpwa000ay8fyb0cmnxui" class="article-share-link">Share</a>
       
       
     </footer>
@@ -613,7 +739,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/05/16/DBs_B+tree/" data-id="cjosax0040006rzwkh0xzfrys" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/05/16/DBs_B+tree/" data-id="cjpbgxpw60008y8fy6lxj0gfb" class="article-share-link">Share</a>
       
       
     </footer>
@@ -733,160 +859,7 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/05/07/DBs-Replication/" data-id="cjosax00n000krzwkyq1s5vm8" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-DBs-mongoDB" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/05/06/DBs-mongoDB/" class="article-date">
-  <time datetime="2018-05-05T16:00:00.000Z" itemprop="datePublished">2018-05-06</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/05/06/DBs-mongoDB/">MongoDB</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <blockquote>
-<p>MongoDB is a document database with the scalability and flexibility that you want with the querying and indexing that you need</p>
-</blockquote>
-<p>上面是mongodb官方网站对 mongoDB的描述。mongoDB有什么不一样的地方？</p>
-<h3 id="特点1：flexibility"><a href="#特点1：flexibility" class="headerlink" title="特点1：flexibility"></a>特点1：flexibility</h3><p>可以很方便的扩展结构，使用JSON-like的结构来保存document。使用过mysql的人应该深有体会，添加一个字段是多么的痛苦。</p>
-<p>在mongodb的<a href="https://resources.mongodb.com/mongodb-architects/mongodb-architecture-guide" target="_blank" rel="noopener">官方文档</a>，是这样评价Document Model的： The best way to work with Data。</p>
-<p>主要从下面4个方面来论证：</p>
-<h4 id="Easy"><a href="#Easy" class="headerlink" title="Easy"></a>Easy</h4><p>关系数据库使用<strong>tabular data model</strong>，由于数据规范化的要求，一个现实中的实体，经常需要好多表来表示。 带来的问题是：开发效率降低。虽然可以通过ORM层（object-relational mapping layer）来解决，但是也是会带来其他问题。</p>
-<p>对比之下，mongo使用了<strong>document data model</strong>，document可以以更加<em>自然</em>的方式来描述数据，就是使用一个单一的文档，把相关的数据作为sub-document嵌入其中。</p>
-<h4 id="Flexible"><a href="#Flexible" class="headerlink" title="Flexible"></a>Flexible</h4><p>document的格式可以随便变更，确实很方便。但是会带来其他的问题么？</p>
-<h4 id="Fast"><a href="#Fast" class="headerlink" title="Fast"></a>Fast</h4><p>mongoDB的数据模型，性能会更好？关系数据库可以JOIN，JOIN的性能确实不好。Mongo因为一个实体被映射为单个文档，所以不需要JOIN，所以性能更好。。虽然也提供了类似JOIN的功能：$lookup，可以跨不同的collection之间。</p>
-<h4 id="Versatile-（多功能）"><a href="#Versatile-（多功能）" class="headerlink" title="Versatile （多功能）"></a>Versatile （多功能）</h4><h2 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h2>
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/05/06/DBs-mongoDB/" data-id="cjosax0000005rzwkrukyzgn7" class="article-share-link">Share</a>
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-  
-    <article id="post-Java_NIO" class="article article-type-post" itemscope="" itemprop="blogPost">
-  <div class="article-meta">
-    <a href="/2018/04/20/Java_NIO/" class="article-date">
-  <time datetime="2018-04-19T16:00:00.000Z" itemprop="datePublished">2018-04-20</time>
-</a>
-    
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2018/04/20/Java_NIO/">Java I/O模型</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="event-multiplexing"><a href="#event-multiplexing" class="headerlink" title="event multiplexing"></a>event multiplexing</h2><p>什么是 I/O multiplexing：当指定的I/O条件被满足时，操作系统会进行通知。</p>
-<p>UNIX Network Programming中给出的一个描述：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">What we need is the capability to tell the kernel that we want to be notified if one or more I/O conditions are ready (i.e., input is ready to be read, or the descriptor is capable of taking more output). This capability is called I/O multiplexing and is provided by the select and poll functions.</span><br></pre></td></tr></table></figure>
-<p>为了区分开下面三种I/O模型，我们需要了解下：</p>
-<p>read操作分为两个步骤：</p>
-<ul>
-<li>等待数据从网上传输过来，写入内核的buffer</li>
-<li>把数据从内核的buffer复制到用户的buffer</li>
-</ul>
-<p><strong>阻塞I/O</strong> (Blocking I/O model)：</p>
-<p>调用read时，线程会被阻塞住，直到数据写入到<strong>用户</strong>的buffer。</p>
-<p>​              问题：需要大量的线程。费内存，线程切换对CPU的开销</p>
-<p><img src="image-20180803034421623.png" alt="image-20180803034421623"></p>
-<p><strong>非阻塞I/O(Nonblocking I/O model)</strong>：</p>
-<p>read时，如果有数据，就和阻塞I/O一样；如果没有数据，就立即返回失败。</p>
-<p>​               问题：需要轮询，也很费CPU</p>
-<p><img src="image-20180803034547878.png" alt="image-20180803034547878"></p>
-<p><strong>IO多路复用</strong>(I/O Multiplexing model)：</p>
-<p>使用一个线程来检查多个文件描述符的状态，看是否有数据到达，阻塞直到有一个文件描述符有数据到达。后续的操作，可以在同一个线程里面执行，也可以另起线程。</p>
-<p><img src="image-20180803034630907.png" alt="image-20180803034630907"></p>
-<h2 id="I-O多路复用的多种实现"><a href="#I-O多路复用的多种实现" class="headerlink" title="I/O多路复用的多种实现"></a>I/O多路复用的多种实现</h2><h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *timeout)</span><br></pre></td></tr></table></figure>
-<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">poll(struct pollfd *fds, int nfds, int timeout)</span><br><span class="line"></span><br><span class="line">struct pollfd &#123;</span><br><span class="line">    int fd;</span><br><span class="line">    short events;</span><br><span class="line">    short revents;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h3 id="kqueue"><a href="#kqueue" class="headerlink" title="kqueue"></a>kqueue</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">int kqueue(void);</span><br><span class="line">int kevent(int kq, const struct kevent *changelist, int nchanges, </span><br><span class="line">           struct kevent *eventlist, int nevents, const struct timespec *timeout);</span><br><span class="line">           </span><br><span class="line">struct kevent &#123;</span><br><span class="line">     uintptr_t       ident;          /* identifier for this event */</span><br><span class="line">     int16_t         filter;         /* filter for event */</span><br><span class="line">     uint16_t        flags;          /* general flags */</span><br><span class="line">     uint32_t        fflags;         /* filter-specific flags */</span><br><span class="line">     intptr_t        data;           /* filter-specific data */</span><br><span class="line">     void            *udata;         /* opaque user data identifier */</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
-<h2 id="NIO中的selector"><a href="#NIO中的selector" class="headerlink" title="NIO中的selector"></a>NIO中的selector</h2><p>Java doc中对它的描述：<strong>A mutiplexor of SelectableChannel objects</strong></p>
-<p>所以很自然的想到：他的底层实现应该就是基于 <strong>event multiplexing</strong> 的各个操作系统的实现： epoll， kqueue。</p>
-<p>在macOS上，就是这个  <strong><em>KQueueSelectorImpl</em></strong></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueSelectorImpl</span> <span class="keyword">extends</span> <span class="title">SelectorImp</span></span>&#123;</span><br><span class="line">    </span><br><span class="line">     <span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">doSelect</span><span class="params">(<span class="keyword">long</span> var1)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="keyword">boolean</span> var3 = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">if</span>(<span class="keyword">this</span>.closed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ClosedSelectorException();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line"></span><br><span class="line">            <span class="keyword">int</span> var7;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.begin();</span><br><span class="line">                var7 = <span class="keyword">this</span>.kqueueWrapper.poll(var1);</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.end();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.processDeregisterQueue();</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.updateSelectedKeys(var7);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KQueueArrayWrapper</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">poll</span><span class="params">(<span class="keyword">long</span> var1)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.updateRegistrations();</span><br><span class="line">        <span class="keyword">int</span> var3 = <span class="keyword">this</span>.kevent0(<span class="keyword">this</span>.kq, <span class="keyword">this</span>.keventArrayAddress, <span class="number">128</span>, var1);</span><br><span class="line">        <span class="keyword">return</span> var3;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">native</span> <span class="keyword">int</span> <span class="title">kevent0</span><span class="params">(<span class="keyword">int</span> var1, <span class="keyword">long</span> var2, <span class="keyword">int</span> var4, <span class="keyword">long</span> var5)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>java中的selector最终会调用到native方法 kevent0.</p>
-<h2 id="NIO中的Channel"><a href="#NIO中的Channel" class="headerlink" title="NIO中的Channel"></a>NIO中的Channel</h2><p>一个Channel（通道）代表和某一实体的连接，这个实体可以是文件、网络套接字等。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ServerSocketChannelImpl</span> <span class="keyword">extends</span> <span class="title">ServerSocketChannel</span> <span class="keyword">implements</span> <span class="title">SelChImp</span></span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> NativeDispatcher nd;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> FileDescriptor fd;</span><br><span class="line">    ServerSocket socket;</span><br><span class="line">    <span class="comment">//......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>ServerSocketChannel 通过<strong>register</strong>方法与一个Selector绑定。</p>
-<h2 id="NIO中的Buffer"><a href="#NIO中的Buffer" class="headerlink" title="NIO中的Buffer"></a>NIO中的Buffer</h2><p>Buffer中有3个很重要的变量，它们是理解Buffer工作机制的关键，分别是</p>
-<ul>
-<li>capacity （总容量）</li>
-<li>position （指针当前位置）</li>
-<li>limit （读/写边界位置）</li>
-</ul>
-<p>在对Buffer进行读/写操作前，我们可以调用Buffer类提供的一些辅助方法来正确设置 position 和 limit 的值，主要有如下几个</p>
-<ul>
-<li>flip(): 设置 limit 为 position 的值，然后 position 置为0。对Buffer进行读取操作前调用。</li>
-<li>rewind(): 仅仅将 position 置0。一般是在重新读取Buffer数据前调用，比如要读取同一个Buffer的数据写入多个通道时会用到。</li>
-<li>clear(): 回到初始状态，即 limit 等于 capacity，position 置0。重新对Buffer进行写入操作前调用。</li>
-<li>compact(): 将未读取完的数据（position 与 limit 之间的数据）移动到缓冲区开头，并将 position 设置为这段数据末尾的下一个位置。其实就等价于重新向缓冲区中写入了这么一段数据。</li>
-</ul>
-<h3 id="NIO-server完整实例"><a href="#NIO-server完整实例" class="headerlink" title="NIO server完整实例"></a>NIO server完整实例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NioServer</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="comment">// 创建一个selector</span></span><br><span class="line">        Selector selector = Selector.open();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 初始化TCP连接监听通道</span></span><br><span class="line">        ServerSocketChannel listenChannel = ServerSocketChannel.open();</span><br><span class="line">        listenChannel.bind(<span class="keyword">new</span> InetSocketAddress(<span class="number">9999</span>));</span><br><span class="line">        listenChannel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">        <span class="comment">// 注册到selector（监听其ACCEPT事件）</span></span><br><span class="line">        listenChannel.register(selector, SelectionKey.OP_ACCEPT);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 创建一个缓冲区</span></span><br><span class="line">        ByteBuffer buffer = ByteBuffer.allocate(<span class="number">100</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">            selector.select(); <span class="comment">//阻塞，直到有监听的事件发生</span></span><br><span class="line">            Iterator&lt;SelectionKey&gt; keyIter = selector.selectedKeys().iterator();</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 通过迭代器依次访问select出来的Channel事件</span></span><br><span class="line">            <span class="keyword">while</span> (keyIter.hasNext()) &#123;</span><br><span class="line">                SelectionKey key = keyIter.next();</span><br><span class="line">                </span><br><span class="line">                <span class="keyword">if</span> (key.isAcceptable()) &#123; <span class="comment">// 有连接可以接受</span></span><br><span class="line">                    SocketChannel channel = ((ServerSocketChannel) key.channel()).accept();</span><br><span class="line">                    channel.configureBlocking(<span class="keyword">false</span>);</span><br><span class="line">                    channel.register(selector, SelectionKey.OP_READ);</span><br><span class="line">                    </span><br><span class="line">                    System.out.println(<span class="string">"与【"</span> + channel.getRemoteAddress() + <span class="string">"】建立了连接！"</span>);</span><br><span class="line">                    </span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (key.isReadable()) &#123; <span class="comment">// 有数据可以读取</span></span><br><span class="line">                    buffer.clear();</span><br><span class="line">    </span><br><span class="line">                    <span class="comment">// 读取到流末尾说明TCP连接已断开，</span></span><br><span class="line">                    <span class="comment">// 因此需要关闭通道或者取消监听READ事件</span></span><br><span class="line">                    <span class="comment">// 否则会无限循环</span></span><br><span class="line">                    <span class="keyword">if</span> (((SocketChannel) key.channel()).read(buffer) == -<span class="number">1</span>) &#123;</span><br><span class="line">                        key.channel().close();</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125; </span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">// 按字节遍历数据</span></span><br><span class="line">                    buffer.flip();</span><br><span class="line">                    <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                        <span class="keyword">byte</span> b = buffer.get();</span><br><span class="line">                        </span><br><span class="line">                        <span class="keyword">if</span> (b == <span class="number">0</span>) &#123; <span class="comment">// 客户端消息末尾的\0</span></span><br><span class="line">                            System.out.println();</span><br><span class="line">                            </span><br><span class="line">                            <span class="comment">// 响应客户端</span></span><br><span class="line">                            buffer.clear();</span><br><span class="line">                            buffer.put(<span class="string">"Hello, Client!\0"</span>.getBytes());</span><br><span class="line">                            buffer.flip();</span><br><span class="line">                            <span class="keyword">while</span> (buffer.hasRemaining()) &#123;</span><br><span class="line">                                ((SocketChannel) key.channel()).write(buffer);</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                            System.out.print((<span class="keyword">char</span>) b);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 已经处理的事件一定要手动移除</span></span><br><span class="line">                keyIter.remove();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p><img src="image-20180422003741608.png" alt="image-20180422003741608"></p>
-<p>上面的例子可以用上图来描述，上图中的Acceptor，就是上面的代码运行的线程。</p>
-<h2 id="NIO与传统IO的区别"><a href="#NIO与传统IO的区别" class="headerlink" title="NIO与传统IO的区别"></a>NIO与传统IO的区别</h2><p>NIO和传统IO（一下简称IO）之间第一个最大的区别是，IO是面向流的，NIO是面向缓冲区的。 Java IO面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方。此外，它不能前后移动流中的数据。如果需要前后移动从流中读取的数据，需要先将它缓存到一个缓冲区。NIO的缓冲导向方法略有不同。数据读取到一个它稍后处理的缓冲区，需要时可在缓冲区中前后移动。这就增加了处理过程中的灵活性。</p>
-<p>IO的各种流是阻塞的。这意味着，当一个线程调用read() 或 write()时，该线程被阻塞，直到有一些数据被读取，或数据完全写入。</p>
-<p>但是，由于NIO的非阻塞的特点，就导致了一些其他问题，编码复杂，而且存在半包问题。</p>
-<h2 id="Reactor模型"><a href="#Reactor模型" class="headerlink" title="Reactor模型"></a>Reactor模型</h2><h4 id="Reactor模型中的组件"><a href="#Reactor模型中的组件" class="headerlink" title="Reactor模型中的组件"></a>Reactor模型中的组件</h4><ul>
-<li>Reactor:Reactor是IO事件的派发者。</li>
-<li>Acceptor:Acceptor接受client连接，建立对应client的Handler，并向Reactor注册此Handler。</li>
-<li>Handler:和一个client通讯的实体，按这样的过程实现业务的处理。</li>
-</ul>
-<p>对应上面的NIO代码来看:</p>
-<ul>
-<li>Reactor：相当于有<strong>分发功能</strong>的Selector</li>
-<li>Acceptor：NIO中建立连接的那个判断分支</li>
-<li>Handler：消息读写处理等操作类</li>
-</ul>
-<h4 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h4><p>和NIO很相似，只是对IO读到的数据的处理（有数据可以读取的分支里面的代码），放到了<strong>Handler</strong>中。</p>
-<p><img src="image-20180422010715580.png" alt="image-20180422010715580"></p>
-<h4 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h4><p>将数据的处理代码，改为多线程实现。</p>
-<p><img src="image-20180422010833942.png" alt="image-20180422010833942"></p>
-<h4 id="主从Reactor模型"><a href="#主从Reactor模型" class="headerlink" title="主从Reactor模型"></a>主从Reactor模型</h4><p>因为Reactor既要处理IO连接请求，又要处理Read，所以出现了下面的方式，MainReactor处理IO连接请求，SubReactor处理Read等。</p>
-<p><img src="image-20180422011045446.png" alt="image-20180422011045446"></p>
-<h2 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h2><p><a href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html" target="_blank" rel="noopener">https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html</a></p>
-<p><a href="http://www.ivaneye.com/2016/07/23/iomodel.html" target="_blank" rel="noopener">http://www.ivaneye.com/2016/07/23/iomodel.html</a></p>
-<p><a href="https://www.cnblogs.com/coderjun/p/7100423.html" target="_blank" rel="noopener">https://www.cnblogs.com/coderjun/p/7100423.html</a></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="http://yoursite.com/2018/04/20/Java_NIO/" data-id="cjosax00q000nrzwkjl21p8ve" class="article-share-link">Share</a>
+      <a data-url="http://yoursite.com/2018/05/07/DBs-Replication/" data-id="cjpbgxpx3000oy8fy97vkxqjk" class="article-share-link">Share</a>
       
       
     </footer>
@@ -908,18 +881,39 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
           <aside id="sidebar">
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
 
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/GC/">GC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/JVM/">JVM</a></li></ul>
+    </div>
+  </div>
+
 
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/GC/" style="font-size: 20px;">GC</a> <a href="/tags/JVM/" style="font-size: 10px;">JVM</a>
+    </div>
+  </div>
+
   
     
   <div class="widget-wrap">
     <h3 class="widget-title">Archives</h3>
     <div class="widget">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/12/">December 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/11/">November 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/10/">October 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">August 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">July 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/05/">May 2018</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/04/">April 2018</a></li></ul>
     </div>
   </div>
 
@@ -932,23 +926,23 @@ Java garbage collection becomes increasingly fiddly and slow as the in-heap data
       <ul>
         
           <li>
+            <a href="/2018/12/04/hotspot_jvm_GC_CMS/">hotspot_jvm_GC_CMS</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/GC_overview/">GC_overview</a>
+          </li>
+        
+          <li>
             <a href="/2018/11/22/Java_synchronizer/">JVM Synchronizer</a>
           </li>
         
           <li>
-            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
-          </li>
-        
-          <li>
-            <a href="/2018/11/22/hystrix/">Hystrix简介</a>
-          </li>
-        
-          <li>
-            <a href="/2018/11/22/consul-simple/">Consul简介</a>
-          </li>
-        
-          <li>
             <a href="/2018/11/22/BTreeStruct/">B-tree数据结构</a>
+          </li>
+        
+          <li>
+            <a href="/2018/11/22/DBs_mysql_locks/">Mysql Locks</a>
           </li>
         
       </ul>
